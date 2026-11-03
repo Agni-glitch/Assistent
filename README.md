@@ -8,7 +8,7 @@
 
 Chat or talk to Fox, and it opens apps, manages files, reads and sends email, searches the web and sets reminders on your own computer. Every action goes through a permission gate you control, and a kill switch stops everything at once.
 
-[![CI](https://github.com/Agni-glitch/assistent/actions/workflows/ci.yml/badge.svg)](https://github.com/Agni-glitch/fox/actions/workflows/ci.yml)
+[![CI](https://github.com/Agni-glitch/assistent/actions/workflows/ci.yml/badge.svg)](https://github.com/Agni-glitch/assistent/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 ![Python 3.11–3.13](https://img.shields.io/badge/python-3.11%E2%80%933.13-blue)
 ![Platform: Windows 11](https://img.shields.io/badge/platform-Windows%2011-0078D6)
