@@ -200,7 +200,7 @@ class PluginBody(BaseModel):
 
 class ResetBody(BaseModel):
     # Each scope wipes one kind of stored state. Nothing is removed unless its scope is listed.
-    scopes: list[Literal["conversations", "memory", "permissions", "audit", "tools", "captures"]] = []
+    scopes: list[Literal["conversations", "memory", "permissions", "audit", "tools", "captures", "cache"]] = []
 
 
 class UploadBody(BaseModel):
@@ -597,6 +597,9 @@ def create_app(
         if "captures" in body.scopes:
             runtime.store.clear_captures()
             done.append("captures")
+        if "cache" in body.scopes:
+            runtime.store.clear_answers()
+            done.append("cache")
         if "tools" in body.scopes:
             runtime.control.enable_all()
             done.append("tools")

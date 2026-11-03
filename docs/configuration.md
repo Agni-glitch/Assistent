@@ -17,6 +17,7 @@ Names are case-insensitive. Environment variables with the same names override `
 | `FOX_TEMPERATURE` | `0.3` | Sampling temperature. |
 | `FOX_MAX_CONTEXT_TOKENS` | `24000` | History kept per request. Older messages are dropped, whole turns at a time. |
 | `FOX_MAX_STEPS` | `15` | Most model/tool rounds in one turn. |
+| `FOX_CACHE_HOURS` | `24` | Hours a repeated question is answered from cache instead of calling a model. `0` turns the cache off. Only plain answers are cached, never a turn that used a tool, and never a question that refers back to the chat ("it", "again") or to the time ("today", "latest"). Clear it under **Control → Reset → Cached answers**. |
 
 Example: try Groq's Llama first, then Gemini, then a local model.
 

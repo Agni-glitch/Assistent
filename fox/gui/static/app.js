@@ -983,7 +983,7 @@ $("plugin-form").onsubmit = guarded(async (event) => {
   await Promise.all([loadControl(), refreshStatus()]);
 });
 
-const RESET_SCOPES = ["conversations", "memory", "permissions", "audit", "tools", "captures"];
+const RESET_SCOPES = ["conversations", "memory", "permissions", "audit", "tools", "captures", "cache"];
 $("reset-run").onclick = guarded(async () => {
   const scopes = RESET_SCOPES.filter((scope) => $(`reset-${scope}`).checked);
   if (!scopes.length) {
@@ -1070,6 +1070,7 @@ const SETTINGS_LAYOUT = [
   ] },
   { title: "Advanced", intro: "Changes apply as soon as you save. The defaults suit most people.", fields: [
     ["FOX_MAX_STEPS", "Max tool steps per turn", "How many tools Fox may chain before it must answer"],
+    ["FOX_CACHE_HOURS", "Reuse answers for (hours)", "A repeated question is answered from cache, without the model. 0 turns this off"],
     ["FOX_TEMPERATURE", "Model temperature", "0 is focused, 1 is creative"],
     ["FOX_MAX_CONTEXT_TOKENS", "Context size (tokens)", "How much of a conversation Fox keeps in view"],
     ["FOX_MODEL_TIMEOUT", "Model timeout (seconds)"],

@@ -4,7 +4,13 @@ All notable changes to Fox are listed here. The format follows [Keep a Changelog
 
 ## [Unreleased]
 
+### Added
+
+- Answer cache: asking the same question again reuses the earlier answer instead of calling a model, for `FOX_CACHE_HOURS` (default 24, `0` turns it off). Turns that used tools are never cached. Clear it from **Control → Reset**.
+
 ### Fixed
+
+- Fox redoes a task when asked again in the same chat (for example after the user closed the app it opened), instead of replying that it was already done. Tool results from earlier turns are now marked as possibly out of date.
 
 - Building `Fox.exe` bundles only the example plugins, never plugins of your own, and the build and release scripts refuse a bundle that has any.
 

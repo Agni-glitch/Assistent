@@ -6,7 +6,7 @@ import json
 import sqlite3
 import threading
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS captures (
     request_headers TEXT, response_headers TEXT, request_body TEXT, response_body TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_captures_host ON captures(host);
+CREATE TABLE IF NOT EXISTS answers (key TEXT PRIMARY KEY, question TEXT, answer TEXT, model TEXT, created TEXT);
 """
 
 CAPTURE_FIELDS = (
@@ -176,6 +177,26 @@ class Store:
 
     def clear_captures(self) -> None:
         self._write("DELETE FROM captures")
+
+    # Answer cache
+    def get_answer(self, key: str, max_age_hours: float) -> dict[str, Any] | None:
+        oldest = (datetime.now() - timedelta(hours=max_age_hours)).isoformat(timespec="seconds")
+        rows = self._read("SELECT * FROM answers WHERE key = ? AND created >= ?", (key, oldest))
+        return rows[0] if rows else None
+
+    def put_answer(self, key: str, question: str, answer: str, model: str, max_age_hours: float) -> None:
+        oldest = (datetime.now() - timedelta(hours=max_age_hours)).isoformat(timespec="seconds")
+        with self._lock, self._db:
+            self._db.execute("DELETE FROM answers WHERE created < ?", (oldest,))
+            self._db.execute(
+                "INSERT OR REPLACE INTO answers VALUES (?, ?, ?, ?, ?)", (key, question, answer, model, now())
+            )
+
+    def count_answers(self) -> int:
+        return self._read("SELECT COUNT(*) AS n FROM answers")[0]["n"]
+
+    def clear_answers(self) -> None:
+        self._write("DELETE FROM answers")
 
     # Bulk clearing, for the reset controls in the GUI. Each one is independent.
     def clear_sessions(self) -> None:
