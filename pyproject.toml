@@ -1,6 +1,6 @@
 [project]
 name = "fox-assistant"
-version = "0.2.0"
+version = "0.3.0"
 description = "Fox: a permission-first personal assistant for Windows 11"
 readme = "README.md"
 license = "MIT"
