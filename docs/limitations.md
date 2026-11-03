@@ -35,6 +35,9 @@ Fox is alpha software. This page lists what it can't do, the trade-offs it makes
 - **Offline speech recognition can be slow** on computers with little memory. Groq or OpenAI speech recognition is much faster.
 - **Tool output is capped** at `FOX_MAX_TOOL_OUTPUT` characters, so very large files or pages are cut off.
 - **One turn at a time** per connection.
+- **Attachments are read as text.** Scanned PDFs need OCR first, and spreadsheets (`.xlsx`) and slides (`.pptx`) aren't read; save them as CSV or PDF. Images need a model that can see.
+- **The model picker has no fallback.** A model picked in the chat's **Model** menu answers alone; if it fails, you see the error. Choose **Auto** to fall back.
+- **Browser capture is Chrome-only** as included, captures one tab at a time, and shows Chrome's debugging bar while it runs. WebSocket frames and binary bodies aren't kept. Secret removal works by header and field name, so it can miss secrets with unusual names.
 
 ## Known issues
 

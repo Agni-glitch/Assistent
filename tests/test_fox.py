@@ -210,7 +210,7 @@ def test_every_real_tool_that_changes_things_asks():
     safe = {name for name, spec in REGISTRY.items() if spec.risk is Risk.SAFE and not name.startswith("_")}
     assert safe == {
         "ask_agent", "get_datetime", "get_system_info", "get_volume", "list_agents", "list_installed_apps",
-        "list_reminders", "list_running_apps", "list_tools", "search_memory",
+        "list_reminders", "list_running_apps", "list_tools", "read_attachment", "search_memory",
     }  # fmt: skip
     for name in ("send_email", "delete_path", "run_powershell", "type_text", "press_keys"):
         assert REGISTRY[name].risk is Risk.CRITICAL

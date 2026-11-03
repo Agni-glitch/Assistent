@@ -6,7 +6,7 @@
 
 **A personal AI assistant for Windows 11 that asks before it acts.**
 
-Chat or talk to Fox, and it opens apps, manages files, reads and sends email, searches the web and sets reminders on your own computer. Every action goes through a permission gate you control, and a kill switch stops everything at once.
+Chat or talk to Fox, and it opens apps, manages files, reads your documents and images, analyses web traffic, reads and sends email, searches the web and sets reminders on your own computer. Every action goes through a permission gate you control, and a kill switch stops everything at once.
 
 [![CI](https://github.com/Agni-glitch/assistent/actions/workflows/ci.yml/badge.svg)](https://github.com/Agni-glitch/assistent/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
@@ -16,6 +16,7 @@ Chat or talk to Fox, and it opens apps, manages files, reads and sends email, se
 
 [Getting started](docs/getting-started.md) ·
 [User guide](docs/user-guide.md) ·
+[Models](docs/models.md) ·
 [Writing plugins](docs/plugins.md) ·
 [Security model](docs/security-model.md) ·
 [Limitations](docs/limitations.md) ·
@@ -38,7 +39,7 @@ Most assistants that can act on your computer either do too little or ask too li
 - **Permission-first.** Every tool call is rated *safe*, *normal* or *critical*. Normal actions ask once and can be remembered per target; critical ones (sending email, deleting, PowerShell, typing keys) ask **every** time. No answer means no.
 - **You hold the controls.** A kill switch, per-tool on/off switches and a full decision log. None of them is reachable by the model or any tool.
 - **Local-first.** Fox runs on your computer. Chats, memory and permissions stay in a local folder. Data leaves only for the AI providers you configure and the web requests you approve.
-- **Any model, with fallback.** Azure OpenAI, OpenAI, Anthropic, Google Gemini, Groq or a local Ollama model. If one fails, Fox moves to the next.
+- **Any model, with fallback.** Azure OpenAI, OpenAI, Anthropic, Google Gemini, Groq, a local Ollama model, or any OpenAI-compatible server you add, such as OpenRouter, DeepSeek or LM Studio. If one fails, Fox moves to the next. Pick a model per chat, and a separate order for images.
 - **Extensible.** Add a tool with a single decorated Python function, or describe a specialist agent in a few lines of YAML. Both load without a restart.
 - **Voice.** Push-to-talk or hands-free with a wake word, with offline speech recognition and offline text-to-speech available.
 
@@ -48,7 +49,11 @@ Most assistants that can act on your computer either do too little or ask too li
 |---|---|
 | **Desktop app** | Chat, agents, permissions, control panel, memory and settings in one window (WebView2). |
 | **Terminal** | `fox chat`, `fox voice` and management commands for everything the app does. |
-| **47 built-in tools** | Apps and windows, files, web search and pages, email (SMTP/IMAP), volume, brightness, media, clipboard, screenshots, notifications, reminders, memory, PowerShell. |
+| **53 built-in tools** | Apps and windows, files, web search and pages, email (SMTP/IMAP), volume, brightness, media, clipboard, screenshots, notifications, reminders, memory, PowerShell, network traffic analysis. |
+| **Attachments** | Attach documents (PDF, Word, text, code, CSV), images and HAR files in chat with **+**, drag and drop, or paste. Images go to models that can see. |
+| **Your own models** | Add any model on the **Models** page, test it, and use it in the fallback order, for one chat, or for an agent. |
+| **Browser capture** | A Chrome extension (included) sends a tab's requests and responses to Fox, which removes secrets and analyses them. |
+| **Clear reports** | Replies render Markdown with task checklists and a progress bar, so a list of jobs shows what's done, not done and failed. |
 | **Specialist agents** | YAML-defined agents with their own prompt, tool allow-list and model chain. Fox delegates to them. |
 | **Plugins** | Python files in `plugins/`, hot-reloaded, behind the same permission gate. |
 | **Local API** | Authenticated REST and WebSocket API on `127.0.0.1` for building your own front end. |
@@ -58,6 +63,12 @@ Most assistants that can act on your computer either do too little or ask too li
 ## Screenshots
 
 <table>
+  <tr>
+    <td colspan="2"><img src="docs/images/checklist.png" alt="Chat page: a message with an attached invoice and screenshot, three grouped tool steps (two done, one stopped), and a reply ending in a checklist with a progress bar: 2 of 5 done, 1 in progress, 1 failed"></td>
+  </tr>
+  <tr>
+    <td colspan="2"><b>Attachments and checklists.</b> Attach documents and images. When Fox works through several jobs, it ends with a checklist of what's done, in progress, not done and failed.</td>
+  </tr>
   <tr>
     <td width="50%"><img src="docs/images/chat.png" alt="Chat page: Fox checks the date with a tool, then the email request is declined at the permission prompt and Fox confirms it didn't send it"></td>
     <td width="50%"><img src="docs/images/chat-dark.png" alt="Chat page in dark theme, showing the empty state with suggested requests"></td>
@@ -107,7 +118,7 @@ uv run fox doctor           # shows which models and features are ready
 uv run fox gui              # or: uv run fox chat
 ```
 
-To build the desktop app instead, run `.\build.bat`. It installs dependencies, runs the tests and creates `Fox.exe` and a `Fox.lnk` shortcut. Open Fox, go to **Settings → AI models**, add a key and click **Save changes**.
+To build the desktop app instead, run `.\build.bat`. It installs dependencies, runs the tests and creates `Fox.exe` and a `Fox.lnk` shortcut. Open Fox, go to **Models**, add a key under **Provider keys** and click **Save changes**.
 
 Full instructions: [docs/getting-started.md](docs/getting-started.md).
 
@@ -139,6 +150,8 @@ See [docs/architecture.md](docs/architecture.md) for the module layout.
 - *"Summarise my five latest emails, then reply to the one from my landlord saying Thursday works."*
 - *"Research the best budget mechanical keyboards and give me three options with links."*
 - *"Remind me at 5:30 pm to call the bank."*
+- *"Here's the contract (attached PDF). List every deadline in a table."*
+- *"Analyse the captured traffic from the checkout page. Why does the order request fail?"*
 - Hands-free: *"Fox, pause the music."*
 
 More, including agent and plugin ideas: [docs/use-cases.md](docs/use-cases.md).
@@ -177,6 +190,8 @@ Guides: [Writing plugins](docs/plugins.md) · [Creating agents](docs/agents.md).
 | [Getting started](docs/getting-started.md) | Install, first run, where data lives |
 | [User guide](docs/user-guide.md) | The desktop app, voice, terminal commands, email |
 | [Configuration](docs/configuration.md) | Every `.env` setting, model and voice providers |
+| [Models](docs/models.md) | Adding models, the fallback order, models for images, choosing a model per chat |
+| [Browser capture](docs/browser-capture.md) | Analysing requests and responses from Chrome, the included extension, and the capture API |
 | [Security model](docs/security-model.md) | Permission levels, the kill switch, what tools can't touch |
 | [Writing plugins](docs/plugins.md) | The plugin API in depth, with patterns and a checklist |
 | [Creating agents](docs/agents.md) | Specialist agents and how delegation works |

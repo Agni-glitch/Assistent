@@ -1,6 +1,6 @@
 """The desktop app: a native window showing the page served by Fox's local API.
 
-The API runs inside this process on a free port, so it can't clash with `fox serve`.
+The API runs inside this process, on FOX_SERVER_PORT when it's free and on any free port otherwise.
 The token reaches the page in the part of the address after #, which is never sent over the network.
 """
 
@@ -149,14 +149,19 @@ def focus_existing_window() -> None:
         ctypes.windll.user32.SetForegroundWindow(hwnd)
 
 
-def open_local_socket(host: str, attempts: int = 20) -> socket.socket:
-    """Claim a free port. Windows can offer a port and then refuse to listen on it, so try another."""
+def open_local_socket(host: str, attempts: int = 20, preferred: int = 0) -> socket.socket:
+    """Claim a free port, trying `preferred` first. Windows can offer a port and then refuse to listen on it,
+    so try another.
+
+    A fixed port gives a browser extension an address that doesn't change; when `fox serve` or another
+    program holds it, any free port will do.
+    """
     for attempt in range(attempts):
         sock = socket.socket()
         try:
             # Stops any other program taking over this port while Fox is using it.
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
-            sock.bind((host, 0))
+            sock.bind((host, preferred if attempt == 0 else 0))
             sock.listen()
             return sock
         except OSError:
@@ -178,9 +183,9 @@ class EmbeddedServer:
         from fox.config import get_settings
         from fox.server import HOST, create_app, load_token
 
-        sock = open_local_socket(HOST)
-        port = sock.getsockname()[1]
         settings = get_settings()
+        sock = open_local_socket(HOST, preferred=settings.fox_server_port)
+        port = sock.getsockname()[1]
         token = load_token(settings)
         app = create_app(port=port, on_attention=flash_window)
         self.server = uvicorn.Server(uvicorn.Config(app, log_level="warning", log_config=None))

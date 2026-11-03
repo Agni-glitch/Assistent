@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Fox capture</title>
+  <link rel="stylesheet" href="popup.css">
+  <script src="popup.js" defer></script>
+</head>
+<body>
+  <h1>Fox capture</h1>
+  <label>Fox address <input id="address" placeholder="http://127.0.0.1:8765" autocomplete="off"></label>
+  <label>Token <input id="token" type="password" autocomplete="off" placeholder="From Fox: Settings, Browser capture"></label>
+  <label class="check"><input type="checkbox" id="bodies"> Include response bodies (text only)</label>
+  <div class="row">
+    <button id="test">Test connection</button>
+    <button id="toggle" class="primary">Capture this tab</button>
+  </div>
+  <p id="status" class="muted"></p>
+</body>
+</html>

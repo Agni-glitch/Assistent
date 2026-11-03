@@ -2,19 +2,29 @@
 
 from __future__ import annotations
 
+import json
 import logging
+import os
 import time
 from dataclasses import dataclass
-from typing import Awaitable, Callable, Sequence
+from pathlib import Path
+from typing import Awaitable, Callable, Literal, Sequence
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, BaseMessage, message_chunk_to_message
 from langchain_core.tools import BaseTool
+from pydantic import BaseModel, Field, ValidationError, field_validator
 
 from fox.config import Settings
 from fox.core.events import Event
 
 log = logging.getLogger("fox.models")
+
+PROVIDERS = ["azure", "gemini", "groq", "openai", "anthropic", "ollama"]
+# "openai_compatible" covers any server that speaks the OpenAI API: OpenRouter, DeepSeek, Together,
+# Mistral, LM Studio, vLLM and so on.
+CUSTOM_PROVIDERS = ["openai_compatible", *PROVIDERS]
+RESERVED_NAMES = {*PROVIDERS, "custom", "auto"}
 
 
 class AllModelsFailed(Exception):
@@ -28,7 +38,91 @@ class ModelSpec:
 
     @property
     def label(self) -> str:
-        return f"{self.provider}:{self.model}"
+        # A model the user added is known by the name they gave it.
+        return self.model if self.provider == "custom" else f"{self.provider}:{self.model}"
+
+
+class CustomModel(BaseModel):
+    """A model added on the Models page. Its key lives in data/models.json, which tools can't read."""
+
+    name: str = Field(pattern=r"^[a-z][a-z0-9_.-]{0,39}$")
+    provider: Literal["openai_compatible", "azure", "gemini", "groq", "openai", "anthropic", "ollama"]
+    model: str = Field(min_length=1, max_length=200)
+    base_url: str = Field(default="", max_length=500)
+    api_key: str = Field(default="", max_length=500)
+    vision: bool = False  # can read images
+
+    @field_validator("name")
+    @classmethod
+    def _not_reserved(cls, value: str) -> str:
+        if value in RESERVED_NAMES:
+            raise ValueError(f"'{value}' is a provider name. Pick another name.")
+        return value
+
+    @field_validator("model", "base_url", "api_key")
+    @classmethod
+    def _one_line(cls, value: str) -> str:
+        if "\r" in value or "\n" in value:
+            raise ValueError("must be a single line")
+        return value.strip()
+
+    @field_validator("base_url")
+    @classmethod
+    def _web_address(cls, value: str) -> str:
+        if value and not value.startswith(("http://", "https://")):
+            raise ValueError("must start with http:// or https://")
+        return value
+
+    def public(self, s: Settings) -> dict:
+        """What the GUI may see: never the key itself."""
+        return {**self.model_dump(exclude={"api_key"}), "has_key": bool(self.api_key), "ready": custom_ready(s, self)}
+
+
+class ModelStore:
+    def __init__(self, path: Path):
+        self.path = path
+
+    def load(self) -> dict[str, CustomModel]:
+        try:
+            raw = json.loads(self.path.read_text(encoding="utf-8"))
+        except FileNotFoundError:
+            return {}
+        except (OSError, ValueError):
+            log.exception("Could not read %s", self.path)
+            return {}
+        models = {}
+        for item in raw if isinstance(raw, list) else []:
+            try:
+                model = CustomModel.model_validate(item)
+                models[model.name] = model
+            except ValidationError as exc:
+                log.warning("Skipping a model in %s: %s", self.path, exc)
+        return models
+
+    def _write(self, models: dict[str, CustomModel]) -> None:
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = self.path.with_suffix(".tmp")
+        tmp.write_text(json.dumps([m.model_dump() for m in models.values()], indent=2), encoding="utf-8")
+        os.replace(tmp, self.path)
+
+    def save(self, model: CustomModel) -> None:
+        models = self.load()
+        models[model.name] = model
+        self._write(models)
+
+    def delete(self, name: str) -> bool:
+        models = self.load()
+        existed = models.pop(name, None) is not None
+        self._write(models)
+        return existed
+
+
+def model_store(s: Settings) -> ModelStore:
+    return ModelStore(s.fox_data_dir / "models.json")
+
+
+def custom_models(s: Settings) -> dict[str, CustomModel]:
+    return model_store(s).load()
 
 
 def _default_model(s: Settings, provider: str) -> str:
@@ -53,52 +147,102 @@ def is_configured(s: Settings, provider: str) -> bool:
     }.get(provider, False)
 
 
+def custom_ready(s: Settings, m: CustomModel) -> bool:
+    """Whether a model the user added has what it needs. Without its own key, it borrows the provider's."""
+    if m.provider == "openai_compatible":
+        return bool(m.base_url)
+    if m.provider == "ollama":
+        return True
+    if m.provider == "azure":
+        return bool((m.base_url or s.azure_openai_endpoint) and (m.api_key or s.azure_openai_api_key))
+    return bool(m.api_key) or is_configured(s, m.provider)
+
+
 def parse_chain(s: Settings, chain: str | Sequence[str]) -> list[ModelSpec]:
-    """Parse "azure,groq:some-model" into specs, leaving out providers with no credentials."""
+    """Parse "azure,groq:some-model,my-model" into specs, leaving out models with no credentials.
+
+    An entry is a provider, "provider:model", or the name of a model added on the Models page.
+    """
     entries = chain.split(",") if isinstance(chain, str) else chain
-    specs = []
+    custom = custom_models(s)
+    specs: list[ModelSpec] = []
     for entry in entries:
         provider, _, model = entry.strip().partition(":")
         provider = provider.lower()
-        model = model or _default_model(s, provider)
-        if provider and model and is_configured(s, provider):
-            specs.append(ModelSpec(provider, model))
+        name = model.lower() if provider == "custom" else "" if model else provider
+        if name in custom:
+            spec = ModelSpec("custom", name) if custom_ready(s, custom[name]) else None
+        else:
+            model = model or _default_model(s, provider)
+            spec = ModelSpec(provider, model) if provider and model and is_configured(s, provider) else None
+        if spec and spec not in specs:
+            specs.append(spec)
     return specs
 
 
-def build_model(s: Settings, spec: ModelSpec) -> BaseChatModel:
+def vision_chain(s: Settings) -> str | list[str]:
+    """The models to try when a message has images."""
+    if s.fox_vision_chain.strip():
+        return s.fox_vision_chain
+    readers = [m.name for m in custom_models(s).values() if m.vision]
+    return readers + s.fox_model_chain.split(",")
+
+
+def available_models(s: Settings) -> list[str]:
+    """Every model that could answer right now, for the model picker."""
+    builtin = [f"{p}:{_default_model(s, p)}" for p in PROVIDERS if is_configured(s, p) and _default_model(s, p)]
+    return builtin + [m.name for m in custom_models(s).values() if custom_ready(s, m)]
+
+
+def _construct(s: Settings, provider: str, model: str, api_key: str = "", base_url: str = "") -> BaseChatModel:
     common = {"temperature": s.fox_temperature, "timeout": s.fox_model_timeout, "max_retries": 1}
-    if spec.provider == "azure":
+    if provider == "azure":
         from langchain_openai import AzureChatOpenAI
 
         return AzureChatOpenAI(
-            azure_endpoint=s.azure_openai_endpoint,
-            api_key=s.azure_openai_api_key,
+            azure_endpoint=base_url or s.azure_openai_endpoint,
+            api_key=api_key or s.azure_openai_api_key,
             api_version=s.azure_openai_api_version,
-            azure_deployment=spec.model,
+            azure_deployment=model,
             **common,
         )
-    if spec.provider == "openai":
+    if provider == "openai_compatible":
         from langchain_openai import ChatOpenAI
 
-        return ChatOpenAI(model=spec.model, api_key=s.openai_api_key, base_url=s.openai_base_url or None, **common)
-    if spec.provider == "gemini":
+        # Local servers such as LM Studio need no key, but the client insists on one.
+        return ChatOpenAI(model=model, api_key=api_key or "not-needed", base_url=base_url, **common)
+    if provider == "openai":
+        from langchain_openai import ChatOpenAI
+
+        url = base_url or s.openai_base_url or None
+        return ChatOpenAI(model=model, api_key=api_key or s.openai_api_key, base_url=url, **common)
+    if provider == "gemini":
         from langchain_google_genai import ChatGoogleGenerativeAI
 
-        return ChatGoogleGenerativeAI(model=spec.model, google_api_key=s.google_api_key, **common)
-    if spec.provider == "groq":
+        return ChatGoogleGenerativeAI(model=model, google_api_key=api_key or s.google_api_key, **common)
+    if provider == "groq":
         from langchain_groq import ChatGroq
 
-        return ChatGroq(model=spec.model, api_key=s.groq_api_key, **common)
-    if spec.provider == "anthropic":
+        return ChatGroq(model=model, api_key=api_key or s.groq_api_key, **common)
+    if provider == "anthropic":
         from langchain_anthropic import ChatAnthropic
 
-        return ChatAnthropic(model=spec.model, api_key=s.anthropic_api_key, **common)
-    if spec.provider == "ollama":
+        extra = {"base_url": base_url} if base_url else {}
+        return ChatAnthropic(model=model, api_key=api_key or s.anthropic_api_key, **extra, **common)
+    if provider == "ollama":
         from langchain_ollama import ChatOllama
 
-        return ChatOllama(model=spec.model, base_url=s.ollama_base_url, temperature=s.fox_temperature)
-    raise ValueError(f"Unknown model provider: {spec.provider}")
+        return ChatOllama(model=model, base_url=base_url or s.ollama_base_url, temperature=s.fox_temperature)
+    raise ValueError(f"Unknown model provider: {provider}")
+
+
+def build_model(s: Settings, spec: ModelSpec) -> BaseChatModel:
+    if spec.provider == "custom":
+        m = custom_models(s).get(spec.model)
+        if m is None:
+            raise ValueError(f"The model '{spec.model}' was removed.")
+        return _construct(s, m.provider, m.model, m.api_key, m.base_url)
+    return _construct(s, spec.provider, spec.model)
 
 
 def text_of(content) -> str:

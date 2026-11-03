@@ -53,6 +53,14 @@ With **Hands-free** on (or `fox voice --wake`): *"Fox, what's the time?"*, *"Fox
 
 Useful when cooking, at a standing desk, or for accessibility, so you can control the computer without the keyboard. Critical actions need the word "confirm".
 
+## Documents, images and web traffic
+
+- *"Here's my lease (attached PDF). When can I end it, and how much notice do I need?"*
+- *"What does this error mean?"* with a screenshot attached.
+- *"Compare these two CSV exports and list the rows that changed."*
+- *"Summarise the captured traffic from the checkout page. Why does the order request return 422?"* ([Browser capture](browser-capture.md))
+- *"Which API calls in this HAR file took over a second?"* with a `.har` file attached.
+
 ## Building on Fox
 
 | Idea | How |
@@ -61,6 +69,8 @@ Useful when cooking, at a standing desk, or for accessibility, so you can contro
 | A task manager integration | A plugin for Todoist, Notion or Jira ([example](plugins.md#call-a-web-api-with-a-key)). |
 | Developer helpers | Plugins for `git pull`, running a test suite, or checking a build status. |
 | Your own front end | The [local API](api.md): a tray app, a browser extension, a Stream Deck button. |
+| Your own traffic analysis | Your browser extension posts to [`/api/captures`](browser-capture.md#building-your-own-extension), and a plugin adds checks specific to your app. |
+| A specialist on another model | [Add the model](models.md#adding-a-model), then give an agent `models: [your-model]`. |
 | A cheaper specialist | An agent with `models: [groq]` for quick lookups. |
 
 ## When Fox isn't the right tool

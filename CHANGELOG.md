@@ -4,6 +4,21 @@ All notable changes to Fox are listed here. The format follows [Keep a Changelog
 
 ## [Unreleased]
 
+### Added
+
+- Attachments in chat: documents (PDF, Word, text, code, CSV), images and HAR files, with **+**, drag and drop, or paste. Long documents are read in parts with the new `read_attachment` tool.
+- A **Models** page: add any model, including OpenAI-compatible servers such as OpenRouter, DeepSeek and LM Studio, test it, and use it by name in the fallback order or in an agent. Keys stay in `data/models.json`.
+- A **Model** menu in chat to pick the model for a conversation, and `FOX_VISION_CHAIN` for messages with images.
+- Browser capture: `/api/captures` accepts requests and responses from a browser extension and removes secrets before storing them. Five network tools summarise, list, show, import (HAR) and clear captured traffic. A reference Chrome extension is in `extensions/chrome-capture`.
+- Replies render task checklists (`- [x]`, `- [ ]`, `- [~]`, `- [!]`) with a progress bar, nested lists, table alignment, status labels in tables, strikethrough, and code blocks with a Copy button. Fox ends multi-step work with a checklist.
+- Consecutive tool steps in chat are grouped with a done/stopped count.
+- New settings: `FOX_VISION_CHAIN`, `FOX_MAX_UPLOAD_MB`, `FOX_MAX_ATTACHMENT_CHARS`, `FOX_MAX_CAPTURES`.
+
+### Changed
+
+- The desktop app's API now uses `FOX_SERVER_PORT` (8765) when it's free, so a browser extension has a fixed address. It still falls back to any free port.
+- Provider keys and the fallback order moved from **Settings** to the **Models** page.
+
 ## [0.1.0] - 2026-11-03
 
 First public release.

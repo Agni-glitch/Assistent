@@ -284,6 +284,10 @@ def git_pull(repo: str) -> str:
 
 Module-level variables are reset on every plugin reload. Store anything that must last in a file of your own, outside Fox's `data` folder, such as `%LOCALAPPDATA%\FoxPlugins\<plugin>.json`.
 
+### Analyse captured web traffic
+
+Requests sent in by a browser extension or imported from a HAR file are in Fox's store, already cleaned of secrets. A plugin can read them with `get_store().list_captures(...)` and `get_store().get_capture(id)` to add checks specific to your app. Mark the tool `untrusted=True`, since the data comes from web pages. Example: [Browser capture](browser-capture.md#writing-your-own-analysis).
+
 ### Several tools in one file
 
 Group related tools in one file (`spotify.py` with `play`, `pause`, `queue`). Give them distinct, descriptive names: tool names share one namespace across Fox.

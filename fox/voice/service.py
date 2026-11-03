@@ -39,8 +39,11 @@ class VoiceService:
             stop_playback()
             raise
 
-    async def reply(self, text: str, session_id: str | None, emit: Emit) -> str | None:
-        """Run one turn and speak the answer as it streams. Returns the session id."""
+    async def reply(self, text: str, session_id: str | None, emit: Emit, **options) -> str | None:
+        """Run one turn and speak the answer as it streams. Returns the session id.
+
+        options go to Fox.chat, such as attachments and model.
+        """
         voice_out = SentenceSpeaker(self.speaker)
         current = session_id
 
@@ -55,7 +58,7 @@ class VoiceService:
             await emit(event)
 
         try:
-            await self.fox.chat(text, session_id, tee, voice=True)
+            await self.fox.chat(text, session_id, tee, voice=True, **options)
         except asyncio.CancelledError:
             voice_out.reset()
             stop_playback()
