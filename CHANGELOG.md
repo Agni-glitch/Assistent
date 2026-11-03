@@ -4,6 +4,10 @@ All notable changes to Fox are listed here. The format follows [Keep a Changelog
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-03
+
+First release with a downloadable `Fox.exe`.
+
 ### Added
 
 - Attachments in chat: documents (PDF, Word, text, code, CSV), images and HAR files, with **+**, drag and drop, or paste. Long documents are read in parts with the new `read_attachment` tool.
@@ -37,5 +41,6 @@ First public release.
 - Untrusted-content marking to reduce prompt injection.
 - `build.bat` packaging with a bundle safety check and self-test.
 
-[Unreleased]: https://github.com/Agni-glitch/fox/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/Agni-glitch/fox/releases/tag/v0.1.0
+[Unreleased]: https://github.com/Agni-glitch/Assistent/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/Agni-glitch/Assistent/releases/tag/v0.2.0
+[0.1.0]: https://github.com/Agni-glitch/Assistent/tree/b76ddd3

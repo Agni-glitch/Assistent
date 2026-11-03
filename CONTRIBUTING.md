@@ -6,8 +6,8 @@ By taking part you agree to follow the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## Ways to contribute
 
-- **Report a bug** with the [bug report form](https://github.com/Agni-glitch/fox/issues/new?template=bug_report.yml).
-- **Suggest a feature** with the [feature request form](https://github.com/Agni-glitch/fox/issues/new?template=feature_request.yml).
+- **Report a bug** with the [bug report form](https://github.com/Agni-glitch/Assistent/issues/new?template=bug_report.yml).
+- **Suggest a feature** with the [feature request form](https://github.com/Agni-glitch/Assistent/issues/new?template=feature_request.yml).
 - **Share a plugin or agent** (see below).
 - **Improve the docs**: typos, unclear steps and missing examples are all worth a pull request.
 - **Fix an issue.** Issues labelled `good first issue` are a good place to start. Comment on an issue before starting larger work so nobody duplicates it.
@@ -19,8 +19,8 @@ By taking part you agree to follow the [Code of Conduct](CODE_OF_CONDUCT.md).
 You need Windows 11, Git and [uv](https://docs.astral.sh/uv/getting-started/installation/).
 
 ```powershell
-git clone https://github.com/Agni-glitch/fox.git
-cd fox
+git clone https://github.com/Agni-glitch/Assistent.git
+cd Assistent
 uv sync --all-extras          # installs Fox, all extras and the dev tools
 uv run pytest                 # run the tests (no API keys needed)
 uv run ruff check .           # lint

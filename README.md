@@ -8,11 +8,12 @@
 
 Chat or talk to Fox, and it opens apps, manages files, reads your documents and images, analyses web traffic, reads and sends email, searches the web and sets reminders on your own computer. Every action goes through a permission gate you control, and a kill switch stops everything at once.
 
-[![CI](https://github.com/Agni-glitch/assistent/actions/workflows/ci.yml/badge.svg)](https://github.com/Agni-glitch/assistent/actions/workflows/ci.yml)
+[![CI](https://github.com/Agni-glitch/Assistent/actions/workflows/ci.yml/badge.svg)](https://github.com/Agni-glitch/Assistent/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 ![Python 3.11–3.13](https://img.shields.io/badge/python-3.11%E2%80%933.13-blue)
 ![Platform: Windows 11](https://img.shields.io/badge/platform-Windows%2011-0078D6)
 ![Status: alpha](https://img.shields.io/badge/status-alpha-orange)
+[![Latest release](https://img.shields.io/github/v/release/Agni-glitch/Assistent)](https://github.com/Agni-glitch/Assistent/releases/latest)
 
 [Getting started](docs/getting-started.md) ·
 [User guide](docs/user-guide.md) ·
@@ -105,13 +106,19 @@ Most assistants that can act on your computer either do too little or ask too li
 
 <sub>Screenshots use a scripted demo model and sample data.</sub>
 
-## Quick start
+## Download
+
+Get **Fox-vX.Y.Z-windows-x64.zip** from the [latest release](https://github.com/Agni-glitch/Assistent/releases/latest), unzip it anywhere, and run `Fox.exe`. No Python needed. On first start Fox creates its settings in `%LOCALAPPDATA%\Fox`; open **Models**, add an API key, and save.
+
+Fox.exe isn't code-signed yet, so Windows SmartScreen may warn that it's from an unknown publisher. Choose **More info → Run anyway**, or build it yourself from source as below. Each release lists the zip's SHA-256 so you can check your download.
+
+## Quick start (from source)
 
 Requirements: Windows 11, [uv](https://docs.astral.sh/uv/getting-started/installation/), and an API key for at least one model provider (or a local [Ollama](https://ollama.com) model).
 
 ```powershell
-git clone https://github.com/Agni-glitch/fox.git
-cd fox
+git clone https://github.com/Agni-glitch/Assistent.git
+cd Assistent
 uv sync --all-extras
 copy .env.example .env      # then add at least one API key
 uv run fox doctor           # shows which models and features are ready
