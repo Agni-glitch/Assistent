@@ -39,6 +39,8 @@ class Settings(BaseSettings):
     fox_temperature: float = 0.3
     fox_max_context_tokens: int = 24000
     fox_max_steps: int = 15
+    # Hours a cached answer is reused for a repeated question. 0 turns the cache off.
+    fox_cache_hours: float = 24
 
     # Azure OpenAI
     azure_openai_endpoint: str = ""

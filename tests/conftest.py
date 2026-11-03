@@ -94,6 +94,8 @@ def make_fox(tmp_path):
         models = [ScriptedModel(script=list(s), seen=[]) for s in scripts]
         fox = Fox(settings=settings, approver=approver, router_factory=lambda s, c, h: router_with(s, h, *models))
         fox.models = models
+        # Each test starts with no cached answers, so a reply scripted in one test never answers another.
+        fox.store.clear_answers()
         return fox
 
     return build
