@@ -12,8 +12,9 @@ datas = [
     (str(ROOT / "fox" / "gui" / "static"), "fox/gui/static"),
     (str(ROOT / ".env.example"), "defaults"),
     (str(ROOT / "agents"), "defaults/agents"),
-    (str(ROOT / "plugins"), "defaults/plugins"),
 ]
+# Only the shared examples. Plugins you write for yourself stay on your computer, like they stay out of git.
+datas += [(str(path), "defaults/plugins") for path in sorted((ROOT / "plugins").glob("_example*.py"))]
 binaries = []
 # Fox and LangChain import these by name while running, so PyInstaller can't find them by reading the code.
 hiddenimports = collect_submodules("fox") + ["pyttsx3.drivers.sapi5", "tiktoken_ext.openai_public", "tiktoken_ext"]

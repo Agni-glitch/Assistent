@@ -52,6 +52,10 @@ $secrets = Get-ChildItem build\out\Fox -Recurse -Force -Include ".env", "fox.db"
 if ($secrets) {
     throw "The build contains private files and must not be shared: $($secrets.FullName -join ', ')"
 }
+$ownPlugins = Get-ChildItem build\out\Fox\_internal\defaults\plugins -File -ErrorAction SilentlyContinue | Where-Object { $_.Name -notlike "_example*" }
+if ($ownPlugins) {
+    throw "The build contains your own plugins and must not be shared: $($ownPlugins.Name -join ', ')"
+}
 
 # Antivirus and file indexers briefly lock new files, so removing and copying them needs retries.
 function Remove-WithRetry([string]$path) {

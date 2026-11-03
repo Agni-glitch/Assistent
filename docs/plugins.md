@@ -361,6 +361,8 @@ Turning a tool off under Permissions removes it from every agent too.
 
 The built app loads plugins from its own `plugins` folder: the project's `plugins` folder when `Fox.exe` is in the project root, otherwise `%LOCALAPPDATA%\Fox\plugins`. See [Building Fox.exe](building.md#where-the-app-keeps-its-data).
 
+Building `Fox.exe` never packs your own plugins into it, so sharing a build or a release doesn't share them. Only the `_example*.py` files are bundled, and a fresh install copies them into its `plugins` folder.
+
 `Fox.exe` contains its own Python, so a plugin can only import libraries that are **bundled** in it (everything Fox itself uses, such as `httpx`, `psutil`, `pyautogui`, `beautifulsoup4`, `pydantic`, `pyyaml`). A plugin that needs another library has to run from source (`uv add <library>`, then `uv run fox gui`), or you add the library to the project and rebuild.
 
 ## Limitations

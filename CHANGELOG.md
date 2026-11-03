@@ -4,6 +4,10 @@ All notable changes to Fox are listed here. The format follows [Keep a Changelog
 
 ## [Unreleased]
 
+### Fixed
+
+- Building `Fox.exe` bundles only the example plugins, never plugins of your own, and the build and release scripts refuse a bundle that has any.
+
 ## [0.2.0] - 2026-11-03
 
 First release with a downloadable `Fox.exe`.
