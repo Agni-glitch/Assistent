@@ -13,6 +13,7 @@
     <img class="rail-logo" src="/static/fox.svg" alt="Fox" width="36" height="36">
     <button class="rail-item active" data-page="chat">Chat</button>
     <button class="rail-item" data-page="agents">Agents</button>
+    <button class="rail-item" data-page="models">Models</button>
     <button class="rail-item" data-page="permissions">Permissions</button>
     <button class="rail-item" data-page="control">Control</button>
     <button class="rail-item" data-page="memory">Memory</button>
@@ -40,9 +41,13 @@
         <button class="button small" id="go-settings">Add an API key</button>
       </div>
       <div class="messages" id="messages" aria-live="polite"></div>
+      <div class="drop-zone" id="drop-zone" hidden><span>Drop files to attach them</span></div>
       <footer class="composer">
         <div class="voice-status" id="voice-status" hidden></div>
+        <div class="attachment-tray" id="attachment-tray" hidden></div>
         <div class="composer-box">
+          <button class="icon-button" id="attach" title="Attach documents, images or a HAR file" aria-label="Attach files">+</button>
+          <input type="file" id="file-input" multiple hidden>
           <textarea id="input" rows="1" placeholder="Ask Fox to do something" aria-label="Message"></textarea>
           <button class="button primary" id="send">Send</button>
           <button class="button danger" id="stop" hidden>Stop</button>
@@ -51,7 +56,10 @@
           <button class="chip" id="talk" title="Listen once, then answer out loud">Talk</button>
           <button class="chip" id="wake" aria-pressed="false" title="Keep listening for the wake word">Hands-free</button>
           <label class="chip check"><input type="checkbox" id="speak"> Read replies aloud</label>
-          <span class="hint">Enter to send, Shift+Enter for a new line</span>
+          <label class="chip model-pick" title="Which model answers. Auto follows your fallback order.">Model
+            <select id="model-pick" aria-label="Model"><option value="">Auto</option></select>
+          </label>
+          <span class="hint">Enter to send, Shift+Enter for a new line. Paste or drop files to attach.</span>
         </div>
       </footer>
     </main>
@@ -64,6 +72,22 @@
         <button class="button primary" id="add-agent">New agent</button>
       </header>
       <div class="card-grid" id="agent-list"></div>
+    </div>
+  </section>
+
+  <section class="page" id="page-models">
+    <div class="page-inner">
+      <header class="page-head">
+        <div><h1>Models</h1><p>The AI models Fox can use. Fox tries them in the fallback order and moves on when one fails or has no key.</p></div>
+        <button class="button primary" id="add-model">Add model</button>
+      </header>
+      <h2>In use now</h2>
+      <p class="muted" id="model-chain-text"></p>
+      <h2>Your models</h2>
+      <p class="muted">Add any model by name: another model from a provider below, or any server that speaks the OpenAI API, such as OpenRouter, DeepSeek, Mistral, Together, LM Studio or vLLM. Then put its name in the fallback order, or pick it for a chat with the Model menu under the message box.</p>
+      <div class="table-wrap"><table><thead><tr><th>Name</th><th>Provider</th><th>Model</th><th>Images</th><th>Status</th><th></th></tr></thead><tbody id="model-list"></tbody></table></div>
+      <div id="model-settings"></div>
+      <div class="button-row top-gap"><button class="button primary" id="save-model-settings">Save changes</button></div>
     </div>
   </section>
 
@@ -122,6 +146,7 @@
         <label class="check"><input type="checkbox" id="reset-permissions"> Remembered permissions</label>
         <label class="check"><input type="checkbox" id="reset-audit"> Activity log</label>
         <label class="check"><input type="checkbox" id="reset-tools"> Turn every tool back on</label>
+        <label class="check"><input type="checkbox" id="reset-captures"> Captured network requests</label>
       </fieldset>
       <div class="button-row"><button class="button danger" id="reset-run">Reset selected</button></div>
     </div>
@@ -145,6 +170,16 @@
         <button class="button primary" id="save-settings">Save changes</button>
       </header>
       <div id="settings-form"></div>
+      <h2>Browser capture</h2>
+      <p class="muted">A browser extension can send the requests and responses it sees to Fox, so you can ask Fox to analyse them. Fox removes passwords, cookies and auth headers before saving anything. See docs/browser-capture.md.</p>
+      <div class="field-grid">
+        <div class="field"><span>Fox address</span><div class="with-action"><input id="capture-address" readonly><button class="button small" type="button" id="copy-address">Copy</button></div></div>
+        <div class="field"><span>Access token (keep it private)</span><div class="with-action"><input id="capture-token" type="password" readonly><button class="button small" type="button" id="copy-token">Copy</button></div></div>
+      </div>
+      <div class="control-card top-gap">
+        <p id="capture-count">No requests captured yet.</p>
+        <button class="button danger" id="clear-captures">Delete captured requests</button>
+      </div>
       <h2>Appearance</h2>
       <div class="field-grid">
         <label class="field"><span>Theme</span>
@@ -193,6 +228,22 @@
       <div class="dialog-actions">
         <button class="button" type="button" id="agent-cancel">Cancel</button>
         <button class="button primary" type="submit">Save agent</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog class="sheet" id="model-dialog" aria-labelledby="model-dialog-title">
+    <form id="model-form">
+      <h2 id="model-dialog-title">Add model</h2>
+      <label class="field"><span>Name (what you'll call it in the fallback order)</span><input id="model-name" required pattern="[a-z][a-z0-9_.\-]{0,39}" placeholder="deepseek" autocomplete="off" title="Lowercase letters, numbers, . - and _"></label>
+      <label class="field"><span>Provider</span><select id="model-provider"></select></label>
+      <label class="field"><span>Model id</span><input id="model-id" required autocomplete="off" placeholder="deepseek-chat"><small id="model-id-help"></small></label>
+      <label class="field"><span id="model-url-label">Server address</span><input id="model-url" autocomplete="off"><small id="model-url-help"></small></label>
+      <div class="field"><span>API key</span><div class="with-action"><input id="model-key" type="password" autocomplete="off"><button class="button small" type="button" id="model-key-clear" hidden>Clear</button></div><small id="model-key-help"></small></div>
+      <label class="check"><input type="checkbox" id="model-vision"> It can read images (used first when a message has an image)</label>
+      <div class="dialog-actions">
+        <button class="button" type="button" id="model-cancel">Cancel</button>
+        <button class="button primary" type="submit">Save model</button>
       </div>
     </form>
   </dialog>

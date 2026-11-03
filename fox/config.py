@@ -32,6 +32,8 @@ class Settings(BaseSettings):
 
     # Model fallback: tried left to right. Entries are "provider" or "provider:model".
     fox_model_chain: str = "azure,gemini,groq,openai,anthropic,ollama"
+    # Used instead when a message has images. Empty means: models marked "can read images", then the chain above.
+    fox_vision_chain: str = ""
     fox_model_timeout: float = 60
     fox_model_cooldown: float = 60
     fox_temperature: float = 0.3
@@ -62,6 +64,13 @@ class Settings(BaseSettings):
     fox_tool_timeout: float = 120
     fox_max_tool_output: int = 20000
 
+    # Attachments in chat
+    fox_max_upload_mb: float = 20
+    fox_max_attachment_chars: int = 40000
+
+    # Requests sent in by a browser extension, kept for the network tools
+    fox_max_captures: int = 5000
+
     # Email
     email_address: str = ""
     email_password: str = ""
@@ -91,7 +100,7 @@ class Settings(BaseSettings):
     openai_stt_model: str = "gpt-4o-mini-transcribe"
     fox_wake_word: str = "fox"
 
-    # Local API server. The desktop app runs its own copy on a free port, so this is for `fox serve`.
+    # Local API server, for `fox serve`. The desktop app uses it too when free, so a browser extension can find it.
     fox_server_port: int = 8765
     fox_allowed_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
 

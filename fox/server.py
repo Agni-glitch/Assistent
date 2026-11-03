@@ -7,41 +7,64 @@ the token in data/api_token.txt. Without that, any web page you visit could try 
 from __future__ import annotations
 
 import asyncio
+import base64
+import binascii
 import importlib.util
 import json
 import logging
 import re
 import secrets
 import subprocess
+import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Awaitable, Callable, Coroutine, Literal
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
+from langchain_core.messages import HumanMessage
 from pydantic import BaseModel, Field, ValidationError
 
 from fox import __version__
 from fox.config import ROOT, Settings
 from fox.core.agents import AgentDef
-from fox.core.events import Event
-from fox.core.models import is_configured, text_of
+from fox.core.events import Event, noop_emit
+from fox.core.models import (
+    CUSTOM_PROVIDERS,
+    PROVIDERS,
+    CustomModel,
+    available_models,
+    custom_models,
+    is_configured,
+    model_store,
+    parse_chain,
+    text_of,
+)
 from fox.core.permissions import ANY_SCOPE, Decision, PermissionRequest
 from fox.core.tooling import REGISTRY
+from fox.core.uploads import (
+    UploadError,
+    attachment_ids,
+    clear_uploads,
+    delete_upload,
+    load_upload,
+    save_upload,
+    upload_file,
+)
 from fox.env_file import PLAIN_KEYS, SECRET_KEYS, update_env
 from fox.runtime import _BUILTINS, Fox
+from fox.tools.network import MAX_BATCH, capture_stats, ingest
 
 log = logging.getLogger("fox.server")
 HOST = "127.0.0.1"
 STATIC_DIR = Path(__file__).parent / "gui" / "static"
-PROVIDERS = ["azure", "gemini", "groq", "openai", "anthropic", "ollama"]
 
 # The page shows text that web pages and emails can influence, and it holds the API token.
 # Script from anywhere else must never run in it, or a page could approve its own permission prompts.
 CONTENT_SECURITY_POLICY = (
-    "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; "
+    "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' blob:; connect-src 'self'; "
     "base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
 )
 
@@ -155,6 +178,7 @@ class SettingsBody(BaseModel):
 class PrefsBody(BaseModel):
     theme: Literal["system", "light", "dark"] = "system"
     speak: bool = False
+    model: str = Field(default="", max_length=100)  # "" lets Fox use the fallback order
 
 
 class KillBody(BaseModel):
@@ -176,7 +200,31 @@ class PluginBody(BaseModel):
 
 class ResetBody(BaseModel):
     # Each scope wipes one kind of stored state. Nothing is removed unless its scope is listed.
-    scopes: list[Literal["conversations", "memory", "permissions", "audit", "tools"]] = []
+    scopes: list[Literal["conversations", "memory", "permissions", "audit", "tools", "captures"]] = []
+
+
+class UploadBody(BaseModel):
+    name: str = Field(min_length=1, max_length=255)
+    data: str  # base64
+
+
+class CaptureBody(BaseModel):
+    """What a browser extension sends. Each entry is checked and cleaned on its own."""
+
+    entries: list[dict] = Field(max_length=MAX_BATCH)
+    source: str = Field(default="extension", max_length=60)
+
+
+class ModelBody(BaseModel):
+    provider: str
+    model: str
+    base_url: str = ""
+    api_key: str | None = None  # None keeps the saved key
+    vision: bool = False
+
+
+class ModelTestBody(BaseModel):
+    model: str = Field(min_length=1, max_length=100)
 
 
 def create_app(
@@ -250,6 +298,7 @@ def create_app(
         return {
             "version": __version__,
             "models": [s.label for s in runtime.router.specs],
+            "available_models": available_models(runtime.settings),
             "tools": len(REGISTRY),
             "tools_on": len(runtime.enabled_tools()),
             "agents": [a.name for a in runtime.agents.list()],
@@ -279,14 +328,130 @@ def create_app(
     @app.get("/api/sessions/{session_id}/messages", dependencies=auth)
     def session_messages(session_id: str) -> list[dict]:
         return [
-            {"role": m.type, "content": text_of(m.content), "tool": m.name if m.type == "tool" else None}
+            {
+                "role": m.type,
+                # Attached documents are part of the stored message, but the window shows what was typed.
+                "content": m.additional_kwargs.get("fox_text", text_of(m.content)),
+                "attachments": m.additional_kwargs.get("fox_attachments", []),
+                "tool": m.name if m.type == "tool" else None,
+            }
             for m in runtime.store.load_messages(session_id)
         ]
 
     @app.delete("/api/sessions/{session_id}", dependencies=auth)
     def delete_session(session_id: str) -> dict:
+        for upload_id in attachment_ids(runtime.store.load_messages(session_id)):
+            delete_upload(runtime.settings, upload_id)
         runtime.store.delete_session(session_id)
         return {"ok": True}
+
+    # --- Attachments ---
+
+    @app.post("/api/uploads", dependencies=auth)
+    def upload(body: UploadBody) -> dict:
+        try:
+            data = base64.b64decode(body.data, validate=True)
+        except (binascii.Error, ValueError) as exc:
+            raise HTTPException(status_code=422, detail="The file data isn't valid base64.") from exc
+        try:
+            return save_upload(runtime.settings, body.name, data)
+        except UploadError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    @app.get("/api/uploads/{upload_id}", dependencies=auth)
+    def upload_info(upload_id: str) -> dict:
+        meta = load_upload(runtime.settings, upload_id)
+        if meta is None:
+            raise HTTPException(status_code=404, detail="No such attachment")
+        return meta
+
+    @app.get("/api/uploads/{upload_id}/image", dependencies=auth)
+    def upload_image(upload_id: str) -> Response:
+        meta, path = load_upload(runtime.settings, upload_id), upload_file(runtime.settings, upload_id)
+        if meta is None or path is None or meta["kind"] != "image":
+            raise HTTPException(status_code=404, detail="No such image")
+        return Response(path.read_bytes(), media_type=meta["mime"])
+
+    @app.delete("/api/uploads/{upload_id}", dependencies=auth)
+    def remove_upload(upload_id: str) -> dict:
+        return {"deleted": delete_upload(runtime.settings, upload_id)}
+
+    # --- Network captures from a browser extension ---
+
+    @app.post("/api/captures", dependencies=auth)
+    async def add_captures(body: CaptureBody) -> dict:
+        stored, skipped = await asyncio.to_thread(ingest, body.entries, body.source)
+        stats = capture_stats()
+        await hub.broadcast({"type": "captures", **stats})
+        return {"stored": stored, "skipped": skipped, **stats}
+
+    @app.get("/api/captures", dependencies=auth)
+    def list_captures(url_contains: str = "", limit: int = 100) -> dict:
+        return {**capture_stats(), "entries": runtime.store.list_captures(url_contains, limit=max(1, min(limit, 1000)))}
+
+    @app.delete("/api/captures", dependencies=auth)
+    async def clear_captures() -> dict:
+        runtime.store.clear_captures()
+        stats = capture_stats()
+        await hub.broadcast({"type": "captures", **stats})
+        return stats
+
+    # --- Models ---
+
+    def models_view() -> dict:
+        current = runtime.settings
+        return {
+            "chain": [spec.label for spec in runtime.router.specs],
+            "available": available_models(current),
+            "custom": [m.public(current) for m in custom_models(current).values()],
+            "providers": {name: is_configured(current, name) for name in PROVIDERS},
+            "custom_providers": CUSTOM_PROVIDERS,
+        }
+
+    @app.get("/api/models", dependencies=auth)
+    def models() -> dict:
+        return models_view()
+
+    @app.put("/api/models/{name}", dependencies=auth)
+    def save_model(name: str, body: ModelBody) -> dict:
+        existing = custom_models(runtime.settings).get(name)
+        key = body.api_key if body.api_key is not None else existing.api_key if existing else ""
+        try:
+            model = CustomModel(name=name, **body.model_dump(exclude={"api_key"}), api_key=key)
+        except ValidationError as exc:
+            problems = "; ".join(f"{'.'.join(map(str, e['loc'])) or 'model'}: {e['msg']}" for e in exc.errors())
+            raise HTTPException(status_code=422, detail=problems) from exc
+        if model.provider == "openai_compatible" and not model.base_url:
+            raise HTTPException(status_code=422, detail="An OpenAI-compatible model needs its server address.")
+        model_store(runtime.settings).save(model)
+        runtime.router = runtime.make_router()  # the fallback order may name this model
+        return models_view()
+
+    @app.delete("/api/models/{name}", dependencies=auth)
+    def delete_model(name: str) -> dict:
+        model_store(runtime.settings).delete(name)
+        runtime.router = runtime.make_router()
+        return models_view()
+
+    @app.post("/api/models/test", dependencies=auth)
+    async def test_model(body: ModelTestBody) -> dict:
+        specs = parse_chain(runtime.settings, [body.model])
+        if not specs:
+            raise HTTPException(status_code=400, detail=f"'{body.model}' isn't set up: it needs a key or an address.")
+        router = runtime.make_router([body.model])
+        started = time.monotonic()
+        try:
+            reply = await asyncio.wait_for(
+                router.stream([HumanMessage("Reply with exactly one word: OK")], [], noop_emit), 90
+            )
+        except Exception as exc:
+            return {"ok": False, "model": specs[0].label, "error": f"{type(exc).__name__}: {str(exc)[:600]}"}
+        return {
+            "ok": True,
+            "model": specs[0].label,
+            "reply": text_of(reply.content)[:200],
+            "seconds": round(time.monotonic() - started, 2),
+        }
 
     @app.get("/api/agents", dependencies=auth)
     def agents() -> list[dict]:
@@ -417,6 +582,7 @@ def create_app(
         done = []
         if "conversations" in body.scopes:
             runtime.store.clear_sessions()
+            clear_uploads(runtime.settings)
             done.append("conversations")
         if "memory" in body.scopes:
             runtime.store.clear_facts()
@@ -428,6 +594,9 @@ def create_app(
         if "audit" in body.scopes:
             runtime.store.clear_audit()
             done.append("audit")
+        if "captures" in body.scopes:
+            runtime.store.clear_captures()
+            done.append("captures")
         if "tools" in body.scopes:
             runtime.control.enable_all()
             done.append("tools")
@@ -541,13 +710,13 @@ def create_app(
                 # Spoken replies outlast "done", so this is what says Fox is free again.
                 await send_quietly({"type": "turn_end"})
 
-        async def typed_turn(text: str, session_id: str | None, speak: bool) -> None:
+        async def typed_turn(text: str, session_id: str | None, speak: bool, **options) -> None:
             if not speak or voice_problem():
-                await runtime.chat(text, session_id, send)
+                await runtime.chat(text, session_id, send, **options)
                 return
             voice = await asyncio.to_thread(get_voice)
             try:
-                await voice.reply(text, session_id, send)
+                await voice.reply(text, session_id, send, **options)
             finally:
                 await send(Event("voice_state", {"state": "idle"}))
 
@@ -569,7 +738,14 @@ def create_app(
                 if kind in ("message", "voice_start") and turn and not turn.done():
                     await ws.send_json({"type": "error", "message": "Fox is still working on the last message."})
                 elif kind == "message":
-                    work = typed_turn(str(message.get("text", "")), message.get("session_id"), bool(message.get("speak")))
+                    attachments = message.get("attachments") or []
+                    work = typed_turn(
+                        str(message.get("text", "")),
+                        message.get("session_id"),
+                        bool(message.get("speak")),
+                        attachments=[str(a) for a in attachments] if isinstance(attachments, list) else [],
+                        model=str(message.get("model") or "") or None,
+                    )
                     turn = begin(work)
                 elif kind == "voice_start":
                     turn = begin(voice_turn(bool(message.get("wake")), message.get("session_id")))

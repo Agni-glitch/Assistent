@@ -14,7 +14,7 @@ from rich.text import Text
 
 from fox.config import ROOT, get_settings
 from fox.core.events import Event
-from fox.core.models import is_configured, parse_chain
+from fox.core.models import PROVIDERS, custom_models, custom_ready, is_configured, parse_chain
 from fox.core.permissions import ANY_SCOPE, Decision, PermissionRequest, Risk
 
 app = typer.Typer(help="Fox: your permission-first personal assistant.", no_args_is_help=True, add_completion=False)
@@ -24,7 +24,6 @@ app.add_typer(agents_app, name="agents")
 app.add_typer(permissions_app, name="permissions")
 
 console = Console()
-PROVIDERS = ["azure", "gemini", "groq", "openai", "anthropic", "ollama"]
 CHAT_HELP = """Commands:
   /new                     start a new conversation
   /models                  show the model fallback chain
@@ -268,6 +267,12 @@ def doctor() -> None:
         installed = importlib.util.find_spec(packages[provider]) is not None
         table.add_row(provider, "yes" if is_configured(s, provider) else "no", "yes" if installed else "no")
     console.print(table)
+    added = custom_models(s)
+    if added:
+        mine = Table("Your model", "Provider", "Model id", "Reads images", "Ready")
+        for m in added.values():
+            mine.add_row(m.name, m.provider, m.model, "yes" if m.vision else "no", "yes" if custom_ready(s, m) else "no")
+        console.print(mine)
     specs = parse_chain(s, s.fox_model_chain)
     console.print("Fallback order: " + (" -> ".join(x.label for x in specs) or "[red]no model configured[/red]"), highlight=False)
     console.print(f"Email: {'set' if s.email_address and s.email_password else 'not set'}")

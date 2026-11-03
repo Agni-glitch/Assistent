@@ -10,7 +10,8 @@ Names are case-insensitive. Environment variables with the same names override `
 
 | Setting | Default | Meaning |
 |---|---|---|
-| `FOX_MODEL_CHAIN` | `azure,gemini,groq,openai,anthropic,ollama` | Providers to try, left to right. Each entry is `provider` or `provider:model`. Providers without credentials are skipped. |
+| `FOX_MODEL_CHAIN` | `azure,gemini,groq,openai,anthropic,ollama` | Models to try, left to right. Each entry is `provider`, `provider:model`, or the name of a model you added on the **Models** page. Models without credentials are skipped. |
+| `FOX_VISION_CHAIN` | (empty) | Used instead when a message in the chat has an image. Empty means: models you marked *can read images*, then `FOX_MODEL_CHAIN`. |
 | `FOX_MODEL_TIMEOUT` | `60` | Seconds to wait for a model before falling back. |
 | `FOX_MODEL_COOLDOWN` | `60` | Seconds a failed model is skipped. A rejected key is skipped for 5 minutes. |
 | `FOX_TEMPERATURE` | `0.3` | Sampling temperature. |
@@ -36,6 +37,8 @@ FOX_MODEL_CHAIN=groq:llama-3.3-70b-versatile,gemini,ollama
 
 The model must support **tool calling**. Small local models often call tools poorly; see [Limitations](limitations.md#models).
 
+Any other model, including any OpenAI-compatible server, can be added on the **Models** page. Those are stored in `data/models.json` rather than `.env`. See [Models](models.md).
+
 ## Permissions and tools
 
 | Setting | Default | Meaning |
@@ -43,6 +46,14 @@ The model must support **tool calling**. Small local models often call tools poo
 | `FOX_PERMISSION_TIMEOUT` | `120` | Seconds a prompt waits. No answer means no. |
 | `FOX_TOOL_TIMEOUT` | `120` | Default seconds a tool may run. Plugins can set their own. |
 | `FOX_MAX_TOOL_OUTPUT` | `20000` | Characters of tool output passed to the model. The rest is cut off. |
+
+## Attachments and browser capture
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `FOX_MAX_UPLOAD_MB` | `20` | Largest file you can attach in chat. |
+| `FOX_MAX_ATTACHMENT_CHARS` | `40000` | Characters of attached documents sent with a message. Fox reads the rest with `read_attachment`. |
+| `FOX_MAX_CAPTURES` | `5000` | Captured network requests kept. The oldest are deleted beyond this. |
 
 ## Email
 
@@ -83,7 +94,7 @@ The model must support **tool calling**. Small local models often call tools poo
 
 | Setting | Default | Meaning |
 |---|---|---|
-| `FOX_SERVER_PORT` | `8765` | Port for `fox serve`. The desktop app picks its own free port. |
+| `FOX_SERVER_PORT` | `8765` | Port for `fox serve`. The desktop app uses it too when it's free, so a browser extension has a fixed address, and picks any free port otherwise. |
 | `FOX_ALLOWED_ORIGINS` | `http://localhost:5173,http://127.0.0.1:5173` | Web pages allowed to call the API from a browser. |
 
 ## Paths

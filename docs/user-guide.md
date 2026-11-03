@@ -3,6 +3,8 @@
 How to use Fox day to day: the desktop app, voice, the terminal and email. For setup, see [Getting started](getting-started.md).
 
 - [The desktop app](#the-desktop-app)
+- [Attaching files](#attaching-files)
+- [Reading Fox's replies](#reading-foxs-replies)
 - [Permission prompts](#permission-prompts)
 - [Control: kill switch, tools, plugins, reset](#control)
 - [Voice](#voice)
@@ -16,14 +18,46 @@ Open it with `Fox.lnk`, `Fox.exe` or `uv run fox gui`.
 
 | Page | What it does |
 |---|---|
-| **Chat** | Your conversations, with each action Fox takes shown in order. Open an action to see its result. |
+| **Chat** | Your conversations, with each action Fox takes shown in order. Open an action to see its result. Attach files with **+**, and pick a model with the **Model** menu. |
 | **Agents** | Create, edit and delete specialist agents. See [Creating agents](agents.md). |
+| **Models** | Provider keys, the fallback order, and models you add yourself, each with a **Test** button. See [Models](models.md). |
 | **Permissions** | Remembered answers, every tool with an on/off switch and its risk level, and the log of decisions. |
 | **Control** | The kill switch, the plugins Fox has loaded, and buttons to wipe stored data. |
 | **Memory** | Pending reminders and saved facts. Cancel or forget any of them. |
-| **Settings** | API keys, model order, voice, email, advanced behaviour and theme. Changes apply as soon as you save. |
+| **Settings** | Voice, email, browser capture, advanced behaviour and theme. Changes apply as soon as you save. |
 
 Fox runs one copy at a time; opening it again brings the open window to the front. Task Manager shows two `Fox.exe` processes: one is the app, the other restarts it if Windows stops it while its window is opening (see [Limitations](limitations.md#known-issues)). Closing the window stops Fox, and with it any reminders.
+
+## Attaching files
+
+Click **+** next to the message box, drag files onto the chat, or paste an image or file into the message box. Up to 10 files at a time, each up to `FOX_MAX_UPLOAD_MB` (20 MB). Remove one with its **×** before sending.
+
+| You attach | Fox gets |
+|---|---|
+| A document: PDF, Word (`.docx`), text, Markdown, CSV, JSON, code, logs | Its text, marked as untrusted data. Long documents are cut at `FOX_MAX_ATTACHMENT_CHARS` (40,000 characters), and Fox reads the rest with `read_attachment` when it needs it. |
+| An image: PNG, JPEG, GIF, WebP, BMP | The image itself, shrunk to 2048 pixels on the longest side. It goes to a model that can see; see [Models](models.md#images-and-documents). |
+| A HAR file | Imported into the captured network traffic, for the network tools. See [Browser capture](browser-capture.md). |
+
+A file Fox can't read (a binary file, a scanned PDF with no text, a broken image) is refused when you attach it, with the reason. Attachments are stored in `data/uploads`, which tools can't reach, and are deleted with their conversation.
+
+## Reading Fox's replies
+
+Replies are shown as Markdown: headings, lists, tables, links and code blocks, each with a **Copy** button.
+
+When you give Fox several jobs, or one job takes several steps, it ends with a checklist:
+
+```markdown
+- [x] Opened Notepad
+- [ ] Sent the email (no address yet)
+- [~] Organised Downloads (12 of 30 files moved)
+- [!] Emptied the temp folder: permission denied
+```
+
+The app shows each line with a tick, an empty box, a dot or a warning, and adds a progress bar with *1 of 4 done · 1 in progress · 1 failed*. Fox ticks a job only when a tool result confirmed it. In tables, a cell that just says *Done*, *Failed*, *In progress* or *Pending* is shown as a coloured label.
+
+Actions that follow each other are grouped, headed by a count such as *3 steps · 2 done · 1 stopped*.
+
+![A reply with grouped steps and a checklist showing 2 of 5 done, 1 in progress and 1 failed](images/checklist.png)
 
 ## Permission prompts
 
@@ -141,6 +175,8 @@ Run `fox tools` for the live list. "Varies" means the risk depends on the argume
 | PowerShell | `run_powershell` (critical) |
 | Memory and reminders | `remember_fact`, `search_memory`, `forget_fact`, `set_reminder`, `list_reminders`, `cancel_reminder` |
 | Agents | `ask_agent`, `list_agents`, `list_tools`, `create_agent`, `delete_agent` (critical) |
+| Network traffic | `summarize_network_traffic`, `list_network_requests`, `get_network_request`, `import_har_file`, `clear_network_requests` |
+| Attachments | `read_attachment` |
 
 ## Good to know
 

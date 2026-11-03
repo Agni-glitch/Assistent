@@ -73,12 +73,14 @@ const state = {
   wake: false,
   status: null,
   control: { kill_switch: false, disabled: [] },
-  prefs: { theme: "system", speak: false },
+  prefs: { theme: "system", speak: false, model: "" },
   socket: null,
   reply: null, // the reply being streamed: { node, text }
   activity: new Map(), // tool name -> the row waiting for its result
   prompt: null,
   retry: 500,
+  attachments: [], // files attached to the message being written: { id, name, kind, size, pending, preview }
+  models: null,
 };
 
 // --- Navigation ---
@@ -86,6 +88,7 @@ const state = {
 const loaders = {
   chat: () => loadSessions(),
   agents: () => loadAgents(),
+  models: () => loadModels(),
   permissions: () => loadPermissions(),
   control: () => loadControl(),
   memory: () => loadMemory(),
@@ -131,10 +134,77 @@ function clearEmptyState() {
   messages.querySelector(".empty")?.remove();
 }
 
-function addUserMessage(text) {
+const formatSize = (bytes) =>
+  bytes < 1024 ? `${bytes} B` : bytes < 1048576 ? `${(bytes / 1024).toFixed(0)} KB` : `${(bytes / 1048576).toFixed(1)} MB`;
+
+// Images need the token, so they're fetched and shown from a local blob rather than by address.
+const imageUrls = new Map();
+async function loadImage(id) {
+  if (!imageUrls.has(id)) {
+    const response = await fetch(`/api/uploads/${id}/image`, { headers: { Authorization: `Bearer ${token}` } });
+    if (!response.ok) throw new Error("This image was deleted.");
+    imageUrls.set(id, URL.createObjectURL(await response.blob()));
+  }
+  return imageUrls.get(id);
+}
+
+function attachmentChip(file, onRemove) {
+  const chip = el("div", {
+    className: `attachment ${file.kind}${file.pending ? " pending" : ""}`,
+    title: `${file.name} (${formatSize(file.size)})${file.pending ? ", uploading" : ""}`,
+  });
+  if (file.kind === "image") {
+    const image = el("img", { alt: "" });
+    if (file.preview) image.src = file.preview;
+    else if (file.id) loadImage(file.id).then((url) => (image.src = url), () => image.remove());
+    chip.append(image);
+  } else {
+    const ext = file.kind === "har" ? "HAR" : (file.name.split(".").pop() || "file").slice(0, 4).toUpperCase();
+    chip.append(el("span", { className: "file-icon", textContent: ext }));
+  }
+  chip.append(el("span", { className: "attachment-name", textContent: file.name }));
+  if (onRemove) {
+    chip.append(el("button", { className: "attachment-remove", type: "button", textContent: "\u00d7", ariaLabel: `Remove ${file.name}`, onclick: onRemove }));
+  }
+  return chip;
+}
+
+function userMessage(text, attachments = []) {
+  const stack = el("div", { className: "user-stack" });
+  if (attachments.length) stack.append(el("div", { className: "attachments" }, ...attachments.map((file) => attachmentChip(file))));
+  if (text) stack.append(el("div", { className: "bubble", textContent: text }));
+  return el("div", { className: "message user" }, stack);
+}
+
+function addUserMessage(text, attachments = []) {
   clearEmptyState();
-  messages.append(el("div", { className: "message user" }, el("div", { className: "bubble", textContent: text })));
+  messages.append(userMessage(text, attachments));
   scrollDown(true);
+}
+
+// Tool calls that follow each other share one block, headed by how many are done.
+function stepsGroup() {
+  const last = messages.lastElementChild;
+  if (last?.classList.contains("steps")) return last;
+  const group = el("div", { className: "steps" }, el("div", { className: "steps-head" }));
+  messages.append(group);
+  return group;
+}
+
+function updateSteps(group) {
+  const rows = [...group.querySelectorAll(":scope > .activity")];
+  const count = (kind) => rows.filter((row) => row.classList.contains(kind)).length;
+  const done = count("ok");
+  const failed = count("failed");
+  const running = rows.length - done - failed;
+  const parts = [`${rows.length} steps`];
+  if (done) parts.push(`${done} done`);
+  if (failed) parts.push(`${failed} stopped`);
+  if (running) parts.push(`${running} running`);
+  const head = group.firstElementChild;
+  head.textContent = parts.join(" \u00b7 ");
+  head.hidden = rows.length < 2;
+  group.classList.toggle("has-failed", failed > 0);
 }
 
 function addAssistantMessage(text) {
@@ -186,8 +256,10 @@ function addActivity(tool, summary) {
   clearEmptyState();
   const label = el("span", { className: "state", textContent: "Running" });
   const row = el("details", { className: "activity" }, el("summary", {}, label, el("span", { textContent: summary })));
-  messages.append(row);
-  state.activity.set(tool, { row, label });
+  const group = stepsGroup();
+  group.append(row);
+  updateSteps(group);
+  state.activity.set(tool, { row, label, group });
   scrollDown();
   return state.activity.get(tool);
 }
@@ -200,6 +272,7 @@ function finishActivity({ tool, ok, output }) {
   entry.label.textContent = ok ? "Done" : "Stopped";
   if (output) entry.row.append(el("pre", { textContent: output }));
   if (!ok) entry.row.open = true;
+  updateSteps(entry.group);
   scrollDown();
 }
 
@@ -227,6 +300,7 @@ function updateControls() {
   $("wake").disabled = noVoice || (state.busy && !state.wake);
   $("wake").setAttribute("aria-pressed", String(state.wake));
   $("new-chat").disabled = state.busy;
+  $("attach").disabled = state.wake;
   document.querySelectorAll(".session-open, .session-delete").forEach((button) => (button.disabled = state.busy));
   const text = VOICE_TEXT[state.voice]?.();
   $("voice-status").hidden = !text;
@@ -235,18 +309,136 @@ function updateControls() {
 
 function submit(text) {
   const message = text.trim();
-  if (!message || state.busy) return;
+  const files = state.attachments.filter((file) => file.id);
+  if ((!message && !files.length) || state.busy) return;
+  if (state.attachments.some((file) => file.pending)) {
+    toast("Wait a moment: a file is still uploading.");
+    return;
+  }
   if (state.socket?.readyState !== WebSocket.OPEN) {
     toast("Not connected to Fox yet. Try again in a moment.", true);
     return;
   }
-  addUserMessage(message);
+  addUserMessage(message, files);
   setBusy(true);
-  state.socket.send(JSON.stringify({ type: "message", text: message, session_id: state.sessionId, speak: state.prefs.speak }));
+  state.socket.send(JSON.stringify({
+    type: "message",
+    text: message,
+    session_id: state.sessionId,
+    speak: state.prefs.speak,
+    attachments: files.map((file) => file.id),
+    model: state.prefs.model || null,
+  }));
   $("input").value = "";
+  state.attachments = [];
+  renderTray();
   resizeInput();
   startReply();
 }
+
+// --- Attachments ---
+
+const MAX_ATTACHMENTS = 10;
+
+function readAsBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).split(",")[1] ?? "");
+    reader.onerror = () => reject(new Error("Could not read the file."));
+    reader.readAsDataURL(file);
+  });
+}
+
+function renderTray() {
+  const tray = $("attachment-tray");
+  tray.hidden = !state.attachments.length;
+  tray.replaceChildren(...state.attachments.map((file) => attachmentChip(file, file.pending ? null : () => removeAttachment(file))));
+}
+
+async function removeAttachment(file) {
+  state.attachments = state.attachments.filter((other) => other !== file);
+  renderTray();
+  if (file.id) await send(`/api/uploads/${file.id}`, "DELETE").catch(() => {});
+}
+
+async function attachOne(file) {
+  const name = file.name || `pasted-${Date.now()}.png`;
+  const kind = file.type.startsWith("image/") ? "image" : name.toLowerCase().endsWith(".har") ? "har" : "document";
+  const entry = { name, kind, size: file.size, pending: true, preview: kind === "image" ? URL.createObjectURL(file) : null };
+  state.attachments.push(entry);
+  renderTray();
+  try {
+    const meta = await send("/api/uploads", "POST", { name, data: await readAsBase64(file) });
+    Object.assign(entry, meta, { pending: false });
+    if (entry.preview) imageUrls.set(meta.id, entry.preview);
+  } catch (error) {
+    state.attachments = state.attachments.filter((other) => other !== entry);
+    toast(`${name}: ${error.message}`, true);
+  }
+  renderTray();
+}
+
+function attachFiles(files) {
+  const room = MAX_ATTACHMENTS - state.attachments.length;
+  if (files.length > room) toast(`Attach up to ${MAX_ATTACHMENTS} files at a time.`, true);
+  return Promise.all([...files].slice(0, Math.max(0, room)).map(attachOne));
+}
+
+$("attach").onclick = () => $("file-input").click();
+$("file-input").onchange = () => {
+  attachFiles($("file-input").files);
+  $("file-input").value = "";
+};
+$("input").addEventListener("paste", (event) => {
+  const files = event.clipboardData?.files;
+  if (files?.length) {
+    event.preventDefault();
+    attachFiles(files);
+  }
+});
+
+// Dragging files over the chat shows where to drop them.
+let dragDepth = 0;
+const draggingFiles = (event) => [...(event.dataTransfer?.types ?? [])].includes("Files");
+const chatPage = $("page-chat");
+chatPage.addEventListener("dragenter", (event) => {
+  if (!draggingFiles(event) || state.wake) return;
+  event.preventDefault();
+  dragDepth++;
+  $("drop-zone").hidden = false;
+});
+chatPage.addEventListener("dragover", (event) => {
+  if (draggingFiles(event)) event.preventDefault();
+});
+chatPage.addEventListener("dragleave", () => {
+  dragDepth = Math.max(0, dragDepth - 1);
+  if (!dragDepth) $("drop-zone").hidden = true;
+});
+chatPage.addEventListener("drop", (event) => {
+  event.preventDefault();
+  dragDepth = 0;
+  $("drop-zone").hidden = true;
+  if (event.dataTransfer?.files.length && !state.wake) attachFiles(event.dataTransfer.files);
+});
+
+async function copyText(text, button) {
+  try {
+    await navigator.clipboard.writeText(text);
+    if (button) {
+      const label = button.textContent;
+      button.textContent = "Copied";
+      setTimeout(() => (button.textContent = label), 1500);
+    }
+  } catch {
+    toast("Couldn't copy to the clipboard.", true);
+  }
+}
+
+// Code blocks in replies have a Copy button. One listener covers them all, including future ones.
+$("messages").addEventListener("click", (event) => {
+  const button = event.target.closest(".copy-code");
+  if (button) copyText(button.closest(".code-block").querySelector("code").textContent, button);
+});
 
 function startVoice(wake) {
   if (state.socket?.readyState !== WebSocket.OPEN) {
@@ -282,6 +474,11 @@ $("speak").onchange = guarded(async () => {
   await send("/api/prefs", "PUT", state.prefs);
 });
 $("new-chat").onclick = () => openSession(null);
+$("model-pick").onchange = guarded(async () => {
+  state.prefs.model = $("model-pick").value;
+  $("model-label").textContent = state.prefs.model || state.status?.models[0] || "";
+  await send("/api/prefs", "PUT", state.prefs);
+});
 $("go-settings").onclick = () => showPage("settings");
 
 // --- Conversations ---
@@ -325,13 +522,15 @@ async function openSession(id) {
   if (id) {
     for (const message of await api(`/api/sessions/${id}/messages`)) {
       if (message.role === "human") {
-        messages.append(el("div", { className: "message user" }, el("div", { className: "bubble", textContent: message.content })));
+        messages.append(userMessage(message.content, message.attachments ?? []));
       } else if (message.role === "ai") {
         if (message.content.trim()) addAssistantMessage(message.content);
       } else if (message.role === "tool") {
-        const failed = /^(Permission denied|Error)/.test(message.content);
-        messages.append(el("div", { className: `activity ${failed ? "failed" : "ok"}` },
+        const failed = /^(Permission denied|Error|Blocked)/.test(message.content);
+        const group = stepsGroup();
+        group.append(el("div", { className: `activity ${failed ? "failed" : "ok"}` },
           el("span", { className: "state", textContent: failed ? "Stopped " : "Done " }), message.tool));
+        updateSteps(group);
       }
     }
     scrollDown(true);
@@ -401,6 +600,9 @@ const events = {
   },
   notice({ message }) {
     toast(message);
+  },
+  captures(stats) {
+    showCaptureCount(stats);
   },
   cancelled() {
     closeReply();
@@ -781,7 +983,7 @@ $("plugin-form").onsubmit = guarded(async (event) => {
   await Promise.all([loadControl(), refreshStatus()]);
 });
 
-const RESET_SCOPES = ["conversations", "memory", "permissions", "audit", "tools"];
+const RESET_SCOPES = ["conversations", "memory", "permissions", "audit", "tools", "captures"];
 $("reset-run").onclick = guarded(async () => {
   const scopes = RESET_SCOPES.filter((scope) => $(`reset-${scope}`).checked);
   if (!scopes.length) {
@@ -824,9 +1026,12 @@ async function loadMemory() {
 
 // --- Settings ---
 
-const SETTINGS_LAYOUT = [
-  { title: "AI models", intro: "Fox tries these left to right, and skips any without a key.", fields: [
-    ["FOX_MODEL_CHAIN", "Fallback order", "Such as azure,gemini,groq:llama-3.3-70b-versatile"],
+const MODEL_LAYOUT = [
+  { title: "Fallback order", intro: "Fox tries these left to right, and skips any without a key. Use provider names, provider:model, or the names of models you added above.", fields: [
+    ["FOX_MODEL_CHAIN", "Fallback order", "Such as azure,gemini,groq:llama-3.3-70b-versatile,deepseek"],
+    ["FOX_VISION_CHAIN", "Order for messages with images", "Empty: models marked \"can read images\" first, then the fallback order"],
+  ] },
+  { title: "Provider keys", intro: "The built-in providers. A model you add can use these keys too.", providers: true, fields: [
     ["AZURE_OPENAI_API_KEY", "Azure OpenAI key"],
     ["AZURE_OPENAI_ENDPOINT", "Azure endpoint"],
     ["AZURE_OPENAI_CHAT_DEPLOYMENT", "Azure deployment name"],
@@ -841,6 +1046,9 @@ const SETTINGS_LAYOUT = [
     ["OLLAMA_MODEL", "Ollama model (local, no key)"],
     ["OLLAMA_BASE_URL", "Ollama address"],
   ] },
+];
+
+const SETTINGS_LAYOUT = [
   { title: "Voice", intro: "Keep pyttsx3 last in the output order. It works offline.", fields: [
     ["FOX_TTS_CHAIN", "Voice output order", "pyttsx3, edge, elevenlabs, openai, azure"],
     ["FOX_TTS_ROBOT_EFFECT", "Robot effect", "true or false"],
@@ -869,6 +1077,9 @@ const SETTINGS_LAYOUT = [
     ["FOX_PERMISSION_TIMEOUT", "Permission prompt timeout (seconds)", "No answer counts as no"],
     ["FOX_TOOL_TIMEOUT", "Tool timeout (seconds)"],
     ["FOX_MAX_TOOL_OUTPUT", "Max tool output (characters)"],
+    ["FOX_MAX_UPLOAD_MB", "Largest attachment (MB)"],
+    ["FOX_MAX_ATTACHMENT_CHARS", "Document text sent with a message (characters)", "Fox reads longer documents in parts"],
+    ["FOX_MAX_CAPTURES", "Captured requests kept", "The oldest are deleted beyond this"],
   ] },
 ];
 
@@ -906,11 +1117,9 @@ function plainField(key, label, help, value) {
   return field;
 }
 
-async function loadSettings() {
-  const settings = await api("/api/settings");
+function renderSettings(container, layout, settings) {
   settingsDraft = {};
-  $("settings-path").textContent = `Saved in ${settings.path}. Changes apply as soon as you save.`;
-  const sections = SETTINGS_LAYOUT.map(({ title, intro, fields }) => {
+  const sections = layout.map(({ title, intro, fields, providers }) => {
     const grid = el("div", { className: "field-grid" });
     for (const [key, label, help] of fields) {
       grid.append(key in settings.secrets
@@ -918,26 +1127,52 @@ async function loadSettings() {
         : plainField(key, label, help, settings.values[key] ?? ""));
     }
     const section = [el("h2", { textContent: title }), el("p", { className: "muted", textContent: intro })];
-    if (title === "AI models") {
+    if (providers) {
       section.push(el("div", { className: "status-row" }, ...Object.entries(settings.providers).map(([name, ready]) =>
         el("span", { className: `badge ${ready ? "safe" : ""}`, textContent: `${name}: ${ready ? "ready" : "not set"}` }))));
     }
     return el("section", {}, ...section, grid);
   });
-  $("settings-form").replaceChildren(...sections);
+  container.replaceChildren(...sections);
+}
+
+function showCaptureCount({ count, latest }) {
+  $("capture-count").textContent = count
+    ? `${count} request${count === 1 ? "" : "s"} captured, the latest at ${String(latest).replace("T", " ")}. Ask Fox to analyse them.`
+    : "No requests captured yet.";
+  $("clear-captures").disabled = !count;
+}
+
+async function loadSettings() {
+  const [settings, captures] = await Promise.all([api("/api/settings"), api("/api/captures?limit=1")]);
+  $("settings-path").textContent = `Saved in ${settings.path}. Changes apply as soon as you save.`;
+  renderSettings($("settings-form"), SETTINGS_LAYOUT, settings);
+  $("capture-address").value = location.origin;
+  $("capture-token").value = token;
+  showCaptureCount(captures);
   $("theme").value = state.prefs.theme;
   $("about").textContent = `Fox ${state.status?.version ?? ""}. ${state.status?.tools_on ?? 0} of ${state.status?.tools ?? 0} tools on.`;
   if (state.status?.voice_problem) $("test-voice").title = state.status.voice_problem;
+}
+
+function fillModelPicker() {
+  const available = state.status?.available_models ?? [];
+  const chosen = state.prefs.model;
+  const options = [el("option", { value: "", textContent: "Auto" }), ...available.map((name) => el("option", { value: name, textContent: name }))];
+  if (chosen && !available.includes(chosen)) options.push(el("option", { value: chosen, textContent: `${chosen} (not set up)` }));
+  $("model-pick").replaceChildren(...options);
+  $("model-pick").value = chosen;
 }
 
 async function refreshStatus() {
   state.status = await api("/api/status");
   state.control.kill_switch = state.status.kill_switch;
   applyControl();
-  const hasModel = state.status.models.length > 0;
+  const hasModel = state.status.models.length > 0 || state.status.available_models.length > 0;
   $("no-model").hidden = hasModel;
-  if (hasModel && !$("model-label").textContent) $("model-label").textContent = state.status.models[0];
+  if (hasModel && !$("model-label").textContent) $("model-label").textContent = state.prefs.model || state.status.models[0] || "";
   if (!hasModel) $("model-label").textContent = "";
+  fillModelPicker();
   updateControls();
 }
 
@@ -947,15 +1182,146 @@ function applyTheme() {
 }
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme);
 
-$("save-settings").onclick = guarded(async () => {
+const saveSettings = (reload) => guarded(async () => {
   if (!Object.keys(settingsDraft).length) {
     toast("Nothing has changed.");
     return;
   }
   await send("/api/settings", "PUT", { values: settingsDraft });
   $("model-label").textContent = "";
-  await Promise.all([loadSettings(), refreshStatus()]);
+  await Promise.all([reload(), refreshStatus()]);
   toast("Saved.");
+});
+$("save-settings").onclick = saveSettings(() => loadSettings());
+$("save-model-settings").onclick = saveSettings(() => loadModels());
+$("copy-address").onclick = () => copyText($("capture-address").value, $("copy-address"));
+$("copy-token").onclick = () => copyText($("capture-token").value, $("copy-token"));
+$("clear-captures").onclick = guarded(async () => {
+  if (!(await confirmDelete("Delete every captured network request?"))) return;
+  showCaptureCount(await send("/api/captures", "DELETE"));
+});
+
+// --- Models ---
+
+const PROVIDER_INFO = {
+  openai_compatible: {
+    label: "OpenAI-compatible server",
+    model: "As the server names it, such as deepseek-chat or mistral-large-latest",
+    url: "Required, such as https://openrouter.ai/api/v1, https://api.deepseek.com/v1 or http://localhost:1234/v1",
+    key: "The server's API key. Leave empty for a local server.",
+  },
+  openai: { label: "OpenAI", model: "Such as gpt-4.1-mini or gpt-4o", url: "Leave empty for OpenAI itself", key: "Leave empty to use the OpenAI key below" },
+  azure: { label: "Azure OpenAI", model: "Your deployment name", url: "Endpoint. Leave empty to use the one below", key: "Leave empty to use the Azure key below" },
+  gemini: { label: "Google Gemini", model: "Such as gemini-2.5-pro", url: "Not used", key: "Leave empty to use the Google key below" },
+  groq: { label: "Groq", model: "Any model Groq lists", url: "Not used", key: "Leave empty to use the Groq key below" },
+  anthropic: { label: "Anthropic", model: "Such as claude-haiku-5-5", url: "Leave empty for Anthropic itself", key: "Leave empty to use the Anthropic key below" },
+  ollama: { label: "Ollama (on this computer)", model: "A model you've pulled, such as llama3.2-vision", url: "Leave empty for http://localhost:11434", key: "Not needed" },
+};
+
+async function testModel(name, button) {
+  button.disabled = true;
+  const label = button.textContent;
+  button.textContent = "Testing\u2026";
+  try {
+    const result = await send("/api/models/test", "POST", { model: name });
+    if (result.ok) toast(`${result.model} answered "${result.reply.trim()}" in ${result.seconds} s.`);
+    else toast(`${result.model} failed: ${result.error}`, true);
+  } finally {
+    button.disabled = false;
+    button.textContent = label;
+  }
+}
+
+async function loadModels() {
+  const [models, settings] = await Promise.all([api("/api/models"), api("/api/settings")]);
+  state.models = models;
+  $("model-chain-text").replaceChildren(
+    el("span", { textContent: models.chain.length ? `Fallback order: ${models.chain.join(" \u2192 ")}` : "No model is ready yet. Add a key below, or add a model." }),
+    el("div", { className: "status-row top-gap" }, ...models.available.map((name) => {
+      const button = el("button", { className: "chip", textContent: `Test ${name}` });
+      button.onclick = guarded(() => testModel(name, button));
+      return button;
+    })),
+  );
+  const rows = models.custom.map((model) => {
+    const test = el("button", { className: "button small", textContent: "Test", disabled: !model.ready });
+    test.onclick = guarded(() => testModel(model.name, test));
+    const edit = el("button", { className: "button small", textContent: "Edit", onclick: () => editModel(model) });
+    const remove = el("button", {
+      className: "button small danger",
+      textContent: "Delete",
+      onclick: guarded(async () => {
+        if (!(await confirmDelete(`Delete model "${model.name}"?`))) return;
+        await send(`/api/models/${model.name}`, "DELETE");
+        await Promise.all([loadModels(), refreshStatus()]);
+      }),
+    });
+    return el("tr", {},
+      cell(model.name, "nowrap"),
+      cell(PROVIDER_INFO[model.provider]?.label ?? model.provider, "nowrap"),
+      cell(model.model),
+      cell(model.vision ? "Yes" : ""),
+      el("td", {}, el("span", { className: `badge ${model.ready ? "safe" : "normal"}`, textContent: model.ready ? "Ready" : "Needs a key or address" })),
+      el("td", { className: "nowrap" }, el("div", { className: "button-row no-margin" }, test, edit, remove)));
+  });
+  $("model-list").replaceChildren(...(rows.length ? rows : [emptyRow(6, "No models added yet. The providers below work without adding anything.")]));
+  renderSettings($("model-settings"), MODEL_LAYOUT, settings);
+}
+
+let modelKeyCleared = false;
+
+function describeProvider() {
+  const provider = $("model-provider").value;
+  const info = PROVIDER_INFO[provider] ?? {};
+  $("model-id-help").textContent = info.model ?? "";
+  $("model-url-help").textContent = info.url ?? "";
+  $("model-key-help").textContent = info.key ?? "";
+  $("model-url").required = provider === "openai_compatible";
+}
+
+function editModel(model) {
+  const providers = state.models?.custom_providers ?? Object.keys(PROVIDER_INFO);
+  $("model-dialog-title").textContent = model ? `Edit ${model.name}` : "Add model";
+  $("model-name").value = model?.name ?? "";
+  $("model-name").readOnly = Boolean(model);
+  $("model-provider").replaceChildren(...providers.map((name) => el("option", { value: name, textContent: PROVIDER_INFO[name]?.label ?? name })));
+  $("model-provider").value = model?.provider ?? "openai_compatible";
+  $("model-id").value = model?.model ?? "";
+  $("model-url").value = model?.base_url ?? "";
+  $("model-key").value = "";
+  $("model-key").placeholder = model?.has_key ? "Saved. Type to replace it." : "Not set";
+  $("model-key-clear").hidden = !model?.has_key;
+  modelKeyCleared = false;
+  $("model-vision").checked = model?.vision ?? false;
+  describeProvider();
+  $("model-dialog").showModal();
+}
+
+$("add-model").onclick = guarded(async () => {
+  if (!state.models) state.models = await api("/api/models");
+  editModel(null);
+});
+$("model-provider").onchange = describeProvider;
+$("model-cancel").onclick = () => $("model-dialog").close();
+$("model-key-clear").onclick = () => {
+  modelKeyCleared = true;
+  $("model-key").value = "";
+  $("model-key").placeholder = "Will be removed when you save";
+};
+$("model-form").onsubmit = guarded(async (event) => {
+  event.preventDefault();
+  const name = $("model-name").value;
+  const key = $("model-key").value.trim();
+  await send(`/api/models/${name}`, "PUT", {
+    provider: $("model-provider").value,
+    model: $("model-id").value.trim(),
+    base_url: $("model-url").value.trim(),
+    vision: $("model-vision").checked,
+    api_key: key || (modelKeyCleared ? "" : null),
+  });
+  $("model-dialog").close();
+  toast(`Saved ${name}. Test it, then add it to the fallback order or pick it from the Model menu in chat.`);
+  await Promise.all([loadModels(), refreshStatus()]);
 });
 $("theme").onchange = guarded(async () => {
   state.prefs.theme = $("theme").value;

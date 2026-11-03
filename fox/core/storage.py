@@ -28,7 +28,18 @@ CREATE TABLE IF NOT EXISTS audit (
     id INTEGER PRIMARY KEY AUTOINCREMENT, at TEXT, agent TEXT, tool TEXT, scope TEXT,
     risk TEXT, outcome TEXT, description TEXT
 );
+CREATE TABLE IF NOT EXISTS captures (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, at TEXT, source TEXT, page TEXT, method TEXT, url TEXT,
+    host TEXT, status INTEGER, mime TEXT, duration_ms REAL, size INTEGER, error TEXT,
+    request_headers TEXT, response_headers TEXT, request_body TEXT, response_body TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_captures_host ON captures(host);
 """
+
+CAPTURE_FIELDS = (
+    "at", "source", "page", "method", "url", "host", "status", "mime", "duration_ms", "size", "error",
+    "request_headers", "response_headers", "request_body", "response_body",
+)  # fmt: skip
 
 
 def now() -> str:
@@ -123,6 +134,48 @@ class Store:
 
     def audit_log(self, limit: int = 100) -> list[dict[str, Any]]:
         return self._read("SELECT * FROM audit ORDER BY id DESC LIMIT ?", (limit,))
+
+    # Network captures, sent in by a browser extension or imported from a HAR file
+    def add_captures(self, rows: list[dict[str, Any]], keep: int) -> int:
+        """Store already-cleaned rows, then drop the oldest beyond `keep`."""
+        with self._lock, self._db:
+            self._db.executemany(
+                f"INSERT INTO captures ({', '.join(CAPTURE_FIELDS)}) VALUES ({', '.join('?' for _ in CAPTURE_FIELDS)})",
+                [tuple(row.get(field) for field in CAPTURE_FIELDS) for row in rows],
+            )
+            self._db.execute(
+                "DELETE FROM captures WHERE id <= (SELECT id FROM captures ORDER BY id DESC LIMIT 1 OFFSET ?)", (keep,)
+            )
+        return len(rows)
+
+    def list_captures(
+        self, url_contains: str = "", method: str = "", min_status: int = 0, limit: int = 50, with_bodies: bool = False
+    ) -> list[dict[str, Any]]:
+        columns = "*" if with_bodies else ", ".join(["id", *CAPTURE_FIELDS[:11]])
+        where, params = ["1 = 1"], []
+        if url_contains:
+            where.append("url LIKE ?")
+            params.append(f"%{url_contains}%")
+        if method:
+            where.append("method = ?")
+            params.append(method.upper())
+        if min_status:
+            where.append("(status >= ? OR COALESCE(error, '') != '')")
+            params.append(min_status)
+        rows = self._read(
+            f"SELECT {columns} FROM captures WHERE {' AND '.join(where)} ORDER BY id DESC LIMIT ?", (*params, limit)
+        )
+        return rows[::-1]  # oldest first, the order they happened
+
+    def get_capture(self, capture_id: int) -> dict[str, Any] | None:
+        rows = self._read("SELECT * FROM captures WHERE id = ?", (capture_id,))
+        return rows[0] if rows else None
+
+    def count_captures(self) -> int:
+        return self._read("SELECT COUNT(*) AS n FROM captures")[0]["n"]
+
+    def clear_captures(self) -> None:
+        self._write("DELETE FROM captures")
 
     # Bulk clearing, for the reset controls in the GUI. Each one is independent.
     def clear_sessions(self) -> None:

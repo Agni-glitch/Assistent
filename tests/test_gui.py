@@ -266,7 +266,7 @@ def test_history_shows_text_and_tool_names(make_fox):
             session = read_until(ws, "done")["session_id"]
             read_until(ws, "turn_end")
         messages = client.get(f"/api/sessions/{session}/messages", headers=HEADERS).json()
-    assert messages[0] == {"role": "human", "content": "what day?", "tool": None}
+    assert messages[0] == {"role": "human", "content": "what day?", "attachments": [], "tool": None}
     assert [m["tool"] for m in messages if m["role"] == "tool"] == ["get_datetime"]
     assert messages[-1]["content"] == "It is today"
 
@@ -415,7 +415,7 @@ def test_saved_key_takes_effect_without_a_restart(make_fox, tmp_path, monkeypatc
 def test_prefs_round_trip_and_reject_nonsense(make_fox):
     with TestClient(create_app(make_fox([final()]), TOKEN)) as client:
         assert client.put("/api/prefs", json={"theme": "dark", "speak": True}, headers=HEADERS).status_code == 200
-        assert client.get("/api/prefs", headers=HEADERS).json() == {"theme": "dark", "speak": True}
+        assert client.get("/api/prefs", headers=HEADERS).json() == {"theme": "dark", "speak": True, "model": ""}
         assert client.put("/api/prefs", json={"theme": "<script>"}, headers=HEADERS).status_code == 422
 
 

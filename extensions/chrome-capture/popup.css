@@ -1,0 +1,11 @@
+body { width: 300px; margin: 0; padding: 12px 14px; font: 13px/1.4 "Segoe UI", system-ui, sans-serif; color: #2a241f; background: #fffdfa; }
+h1 { font-size: 15px; margin: 0 0 10px; }
+label { display: block; margin-bottom: 8px; color: #6f6459; }
+input:not([type=checkbox]) { display: block; width: 100%; box-sizing: border-box; margin-top: 2px; padding: 5px 8px; border: 1px solid #ddd4c8; border-radius: 6px; font: inherit; color: #2a241f; }
+.check { display: flex; align-items: center; gap: 6px; }
+.row { display: flex; gap: 8px; margin: 10px 0 6px; }
+button { flex: 1; padding: 6px 10px; border: 1px solid #ddd4c8; border-radius: 6px; background: #fff; font: inherit; cursor: pointer; }
+button.primary { background: #c9530d; border-color: #c9530d; color: #fff; font-weight: 600; }
+button.primary.on { background: #b3261e; border-color: #b3261e; }
+.muted { color: #6f6459; margin: 4px 0 0; }
+.bad { color: #b3261e; }

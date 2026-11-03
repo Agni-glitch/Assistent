@@ -52,7 +52,7 @@ GOOGLE_API_KEY=your-key
 FOX_MODEL_CHAIN=gemini,groq
 ```
 
-Providers in `FOX_MODEL_CHAIN` with no key are skipped. You can also add keys later in the desktop app under **Settings → AI models**. Every setting is described in [Configuration](configuration.md).
+Providers in `FOX_MODEL_CHAIN` with no key are skipped. You can also add keys later in the desktop app on the **Models** page, where you can add other models too ([Models](models.md)). Every setting is described in [Configuration](configuration.md).
 
 ## 4. Check your setup
 
