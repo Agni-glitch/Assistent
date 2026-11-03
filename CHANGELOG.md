@@ -4,6 +4,8 @@ All notable changes to Fox are listed here. The format follows [Keep a Changelog
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-03
+
 ### Added
 
 - Answer cache: asking the same question again reuses the earlier answer instead of calling a model, for `FOX_CACHE_HOURS` (default 24, `0` turns it off). Turns that used tools are never cached. Clear it from **Control → Reset**.
@@ -11,7 +13,6 @@ All notable changes to Fox are listed here. The format follows [Keep a Changelog
 ### Fixed
 
 - Fox redoes a task when asked again in the same chat (for example after the user closed the app it opened), instead of replying that it was already done. Tool results from earlier turns are now marked as possibly out of date.
-
 - Building `Fox.exe` bundles only the example plugins, never plugins of your own, and the build and release scripts refuse a bundle that has any.
 
 ## [0.2.0] - 2026-11-03
@@ -51,6 +52,7 @@ First public release.
 - Untrusted-content marking to reduce prompt injection.
 - `build.bat` packaging with a bundle safety check and self-test.
 
-[Unreleased]: https://github.com/Agni-glitch/Assistent/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/Agni-glitch/Assistent/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/Agni-glitch/Assistent/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/Agni-glitch/Assistent/releases/tag/v0.2.0
 [0.1.0]: https://github.com/Agni-glitch/Assistent/tree/b76ddd3
