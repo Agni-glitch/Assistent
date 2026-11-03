@@ -1,0 +1,61 @@
+name: Bug report
+description: Something in Fox doesn't work as expected.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! **Remove API keys, email addresses and other personal data** from anything you paste.
+        Security problems go through [private reporting](../security/advisories/new), not here.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open Fox
+        2. Ask "..."
+        3. ...
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Fox version or commit
+      placeholder: 0.1.0
+    validations:
+      required: true
+  - type: dropdown
+    id: run-mode
+    attributes:
+      label: How do you run Fox?
+      options:
+        - Fox.exe (built with build.bat)
+        - From source (uv run fox gui)
+        - From source (fox chat / fox voice)
+        - fox serve with my own client
+    validations:
+      required: true
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version
+      description: Run `winver`.
+      placeholder: Windows 11 24H2, build 26100
+  - type: input
+    id: model
+    attributes:
+      label: Model provider and model
+      placeholder: groq:llama-3.3-70b-versatile
+  - type: textarea
+    id: log
+    attributes:
+      label: Relevant log lines
+      description: From `data/fox.log` (Settings → Open log). Remove personal data.
+      render: text

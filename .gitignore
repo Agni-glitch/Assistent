@@ -1,0 +1,31 @@
+# Secrets and personal data: never commit these
+.env
+.env.*
+!.env.example
+data/
+
+# Python and tools
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# Build output
+build/
+dist/
+/Fox.exe
+/Fox.lnk
+/_internal/
+
+# Plugins you write for yourself stay local; shared examples start with an underscore
+/plugins/*.py
+!/plugins/_example*.py
+
+# Editors and OS
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
+*.tmp

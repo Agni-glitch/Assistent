@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Fox</title>
+  <link rel="icon" href="/static/fox.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/style.css">
+  <script type="module" src="/static/app.js"></script>
+</head>
+<body>
+  <nav class="rail" aria-label="Main">
+    <img class="rail-logo" src="/static/fox.svg" alt="Fox" width="36" height="36">
+    <button class="rail-item active" data-page="chat">Chat</button>
+    <button class="rail-item" data-page="agents">Agents</button>
+    <button class="rail-item" data-page="permissions">Permissions</button>
+    <button class="rail-item" data-page="control">Control</button>
+    <button class="rail-item" data-page="memory">Memory</button>
+    <button class="rail-item" data-page="settings">Settings</button>
+    <div class="rail-status" id="connection" title="Connecting"><span class="dot"></span><span id="connection-text">Connecting</span></div>
+  </nav>
+
+  <div class="kill-banner" id="kill-banner" role="alert" hidden>
+    <span><b>Kill switch is on.</b> Fox can't run any tool until you turn it off.</span>
+    <button class="button" id="kill-banner-off">Turn off</button>
+  </div>
+
+  <section class="page chat-page active" id="page-chat">
+    <aside class="sessions" aria-label="Conversations">
+      <button class="button primary wide" id="new-chat">New chat</button>
+      <ul class="session-list" id="session-list"></ul>
+    </aside>
+    <main class="chat">
+      <header class="chat-head">
+        <h1 id="chat-title">New chat</h1>
+        <span class="model-label" id="model-label"></span>
+      </header>
+      <div class="banner" id="no-model" hidden>
+        <span>No AI model is set up yet, so Fox can't answer.</span>
+        <button class="button small" id="go-settings">Add an API key</button>
+      </div>
+      <div class="messages" id="messages" aria-live="polite"></div>
+      <footer class="composer">
+        <div class="voice-status" id="voice-status" hidden></div>
+        <div class="composer-box">
+          <textarea id="input" rows="1" placeholder="Ask Fox to do something" aria-label="Message"></textarea>
+          <button class="button primary" id="send">Send</button>
+          <button class="button danger" id="stop" hidden>Stop</button>
+        </div>
+        <div class="composer-tools">
+          <button class="chip" id="talk" title="Listen once, then answer out loud">Talk</button>
+          <button class="chip" id="wake" aria-pressed="false" title="Keep listening for the wake word">Hands-free</button>
+          <label class="chip check"><input type="checkbox" id="speak"> Read replies aloud</label>
+          <span class="hint">Enter to send, Shift+Enter for a new line</span>
+        </div>
+      </footer>
+    </main>
+  </section>
+
+  <section class="page" id="page-agents">
+    <div class="page-inner">
+      <header class="page-head">
+        <div><h1>Agents</h1><p>Specialists Fox can hand work to. Their actions go through the same permission prompts, and each prompt names the agent asking.</p></div>
+        <button class="button primary" id="add-agent">New agent</button>
+      </header>
+      <div class="card-grid" id="agent-list"></div>
+    </div>
+  </section>
+
+  <section class="page" id="page-permissions">
+    <div class="page-inner">
+      <header class="page-head">
+        <div><h1>Permissions</h1><p>Safe tools run without asking. Normal tools ask, and you can remember the answer. Critical tools ask every time.</p></div>
+      </header>
+      <div class="tabs" role="tablist">
+        <button class="tab active" data-tab="rules">Remembered</button>
+        <button class="tab" data-tab="tools">All tools</button>
+        <button class="tab" data-tab="audit">Activity log</button>
+      </div>
+      <div class="tab-panel" id="tab-rules">
+        <form class="inline-form" id="grant-form">
+          <label>Always allow <select id="grant-tool"></select></label>
+          <label>Target <input id="grant-scope" placeholder="Everything" autocomplete="off"></label>
+          <button class="button" type="submit">Add</button>
+        </form>
+        <div class="table-wrap"><table><thead><tr><th>Rule</th><th>Tool</th><th>Target</th><th></th></tr></thead><tbody id="rule-list"></tbody></table></div>
+      </div>
+      <div class="tab-panel" id="tab-tools" hidden>
+        <input class="search" id="tool-search" placeholder="Filter tools" aria-label="Filter tools" autocomplete="off">
+        <p class="muted">Turning a tool off hides it from Fox and every agent. The kill switch and plugins are on the Control page.</p>
+        <div class="table-wrap"><table><thead><tr><th>On</th><th>Tool</th><th>Risk</th><th>What it does</th></tr></thead><tbody id="tool-list"></tbody></table></div>
+      </div>
+      <div class="tab-panel" id="tab-audit" hidden>
+        <div class="table-wrap"><table><thead><tr><th>When</th><th>Agent</th><th>Tool</th><th>Outcome</th><th>Action</th></tr></thead><tbody id="audit-list"></tbody></table></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="page" id="page-control">
+    <div class="page-inner">
+      <header class="page-head"><div><h1>Control</h1><p>The switches that decide whether Fox may act at all, the tools it can load, and how to wipe what it has stored.</p></div></header>
+
+      <h2>Kill switch</h2>
+      <div class="control-card" id="kill-card">
+        <div>
+          <p id="kill-state">Fox is running normally.</p>
+          <p class="muted">When on, every tool is blocked at once and anything running stops. Chat still works; Fox just can't do anything on your computer until you turn it back off.</p>
+        </div>
+        <button class="button danger" id="kill-toggle">Engage kill switch</button>
+      </div>
+
+      <h2>Plugins</h2>
+      <p class="muted">Each plugin is one Python file that adds tools. New tools are on right away, still behind the usual permission prompts, and you can turn any of them off under Permissions. Plugin code runs with the same access as Fox itself, so only add code you trust.</p>
+      <div class="button-row"><button class="button primary" id="add-plugin">Add plugin</button></div>
+      <div class="table-wrap"><table><thead><tr><th>File</th><th>Status</th><th>Tools it adds</th><th></th></tr></thead><tbody id="plugin-list"></tbody></table></div>
+
+      <h2>Reset</h2>
+      <p class="muted">Permanently delete stored data. Pick what to clear, then Reset. This can't be undone.</p>
+      <fieldset class="reset-picker">
+        <label class="check"><input type="checkbox" id="reset-conversations"> Conversations and history</label>
+        <label class="check"><input type="checkbox" id="reset-memory"> Saved facts and reminders</label>
+        <label class="check"><input type="checkbox" id="reset-permissions"> Remembered permissions</label>
+        <label class="check"><input type="checkbox" id="reset-audit"> Activity log</label>
+        <label class="check"><input type="checkbox" id="reset-tools"> Turn every tool back on</label>
+      </fieldset>
+      <div class="button-row"><button class="button danger" id="reset-run">Reset selected</button></div>
+    </div>
+  </section>
+
+  <section class="page" id="page-memory">
+    <div class="page-inner">
+      <header class="page-head"><div><h1>Memory</h1><p>What Fox has saved. Saved facts are added to every conversation.</p></div></header>
+      <h2>Reminders</h2>
+      <p class="muted">Reminders fire only while Fox is open. Overdue ones appear at the next start.</p>
+      <ul class="plain-list" id="reminder-list"></ul>
+      <h2>Saved facts</h2>
+      <ul class="plain-list" id="fact-list"></ul>
+    </div>
+  </section>
+
+  <section class="page" id="page-settings">
+    <div class="page-inner">
+      <header class="page-head">
+        <div><h1>Settings</h1><p id="settings-path"></p></div>
+        <button class="button primary" id="save-settings">Save changes</button>
+      </header>
+      <div id="settings-form"></div>
+      <h2>Appearance</h2>
+      <div class="field-grid">
+        <label class="field"><span>Theme</span>
+          <select id="theme"><option value="system">Match Windows</option><option value="light">Light</option><option value="dark">Dark</option></select>
+        </label>
+      </div>
+      <h2>Tools</h2>
+      <div class="button-row">
+        <button class="button" id="test-voice">Test voice</button>
+        <button class="button" id="open-env">Open settings file</button>
+        <button class="button" id="open-log">Open log</button>
+      </div>
+      <p class="muted" id="about"></p>
+    </div>
+  </section>
+
+  <dialog class="prompt" id="prompt" aria-labelledby="prompt-title">
+    <div class="prompt-head">
+      <span class="badge" id="prompt-risk"></span>
+      <span class="muted" id="prompt-agent"></span>
+    </div>
+    <h2 id="prompt-title"></h2>
+    <pre class="prompt-detail" id="prompt-detail"></pre>
+    <div class="prompt-confirm" id="prompt-confirm" hidden>
+      <label for="prompt-yes">This can't be undone easily. Type <b>yes</b> to allow it once.</label>
+      <input id="prompt-yes" autocomplete="off" spellcheck="false">
+    </div>
+    <div class="prompt-timer"><span id="prompt-bar"></span></div>
+    <p class="muted prompt-note" id="prompt-note"></p>
+    <div class="prompt-actions" id="prompt-actions"></div>
+  </dialog>
+
+  <dialog class="sheet" id="agent-dialog" aria-labelledby="agent-dialog-title">
+    <form id="agent-form">
+      <h2 id="agent-dialog-title">New agent</h2>
+      <label class="field"><span>Name</span><input id="agent-name" required pattern="[a-z][a-z0-9_\-]{0,39}" placeholder="travel_planner" autocomplete="off" title="Lowercase letters, numbers, - and _"></label>
+      <label class="field"><span>What it's for (Fox reads this to choose the agent)</span><input id="agent-description" required autocomplete="off"></label>
+      <label class="field"><span>Instructions</span><textarea id="agent-prompt" rows="5" required></textarea></label>
+      <label class="field"><span>Model chain (optional, such as groq,azure)</span><input id="agent-models" autocomplete="off"></label>
+      <label class="field"><span>Most steps per task</span><input id="agent-steps" type="number" min="1" max="50" value="10"></label>
+      <fieldset class="tool-picker">
+        <legend>Tools it can use</legend>
+        <label class="check"><input type="checkbox" id="agent-all-tools"> All tools</label>
+        <div id="agent-tools"></div>
+      </fieldset>
+      <div class="dialog-actions">
+        <button class="button" type="button" id="agent-cancel">Cancel</button>
+        <button class="button primary" type="submit">Save agent</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog class="sheet" id="plugin-dialog" aria-labelledby="plugin-dialog-title">
+    <form id="plugin-form">
+      <h2 id="plugin-dialog-title">Add plugin</h2>
+      <label class="field"><span>File name</span><input id="plugin-name" required pattern="[a-z][a-z0-9_\-]{0,39}" placeholder="coin" autocomplete="off" title="Lowercase letters, numbers, - and _"></label>
+      <label class="field"><span>Python code</span><textarea id="plugin-code" rows="14" spellcheck="false" required></textarea></label>
+      <p class="muted">Decorate a function with <b>@fox_tool</b>. Its docstring is what Fox reads to use it.</p>
+      <div class="dialog-actions">
+        <button class="button" type="button" id="plugin-cancel">Cancel</button>
+        <button class="button primary" type="submit">Save plugin</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog class="sheet small-sheet" id="confirm-dialog" aria-labelledby="confirm-text">
+    <p id="confirm-text"></p>
+    <div class="dialog-actions">
+      <button class="button" id="confirm-no">Cancel</button>
+      <button class="button danger" id="confirm-yes">Delete</button>
+    </div>
+  </dialog>
+
+  <div class="toasts" id="toasts" role="status"></div>
+</body>
+</html>

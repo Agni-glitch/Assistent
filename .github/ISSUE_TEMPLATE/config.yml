@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/YOUR_GITHUB_USERNAME/fox/security/advisories/new
+    about: Please report security problems privately, not in a public issue.
+  - name: Questions and ideas
+    url: https://github.com/YOUR_GITHUB_USERNAME/fox/discussions
+    about: Ask a question or share a plugin or agent you made.

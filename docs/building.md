@@ -1,0 +1,56 @@
+# Building Fox.exe
+
+`build.bat` packages Fox into a Windows desktop app with PyInstaller.
+
+```powershell
+.\build.bat
+```
+
+It installs dependencies, runs the tests, builds `Fox.exe` and its `_internal` folder in the project root, runs the app's self-check, and creates the shortcut `Fox.lnk`. The build takes a few minutes and about 400 MB of disk. Close Fox before rebuilding.
+
+## Options
+
+| Command | What it does |
+|---|---|
+| `.\build.bat` | Full build, with `Fox.lnk` in the project folder. |
+| `.\build.bat -SkipTests` | Skips the tests. |
+| `.\build.bat -NoShortcut` | Builds without creating a shortcut. |
+| `.\build.bat -Desktop` | Also puts a shortcut on the Desktop. |
+| `.\build.bat -StartMenu` | Also adds Fox to the Start menu. |
+| `.\scripts\create_shortcut.ps1` | Only recreates the shortcut. Takes `-Desktop` and `-StartMenu` too. |
+
+## Safety checks
+
+The build stops with an error if:
+
+- the bundle contains your `.env`, chats or permissions, so a shared build never leaks your keys or data;
+- `Fox.exe` fails its self-check, which loads every bundled library and tests the offline voice.
+
+## Files involved
+
+| File | Purpose |
+|---|---|
+| `build.bat`, `scripts/build.ps1` | The build steps. |
+| `fox.spec` | What goes into the bundle. If a new dependency imports modules by name at run time, add it here. |
+| `scripts/fox_app.py` | The app's entry point. |
+| `scripts/make_icon.py` | Draws `assets/fox.ico`. |
+| `scripts/create_shortcut.ps1` | Creates `Fox.lnk`. |
+
+## Where the app keeps its data
+
+| Where `Fox.exe` is | Where it keeps `.env`, `data`, `agents` and `plugins` |
+|---|---|
+| The project's root folder | The project's own folders, shared with the `fox` command. Rebuilding doesn't touch them. |
+| Copied anywhere else | `%LOCALAPPDATA%\Fox`, created on first run with the starter agents and no keys. |
+
+## Moving and sharing the app
+
+- `Fox.exe` needs the `_internal` folder beside it, so move or copy them together.
+- If you move the project, run `.\scripts\create_shortcut.ps1` again; a shortcut stores the full path.
+- `Fox.exe` isn't code-signed, so Windows SmartScreen may warn about it on other computers.
+- The app needs the Microsoft Edge WebView2 Runtime, which comes with Windows 11. If it's missing, Fox shows a message with the download link.
+- Plugins in `Fox.exe` can only import libraries that are bundled. See [Writing plugins](plugins.md#plugins-in-foxexe).
+
+## Releasing on GitHub
+
+`Fox.exe`, `_internal` and `Fox.lnk` are in `.gitignore`; don't commit them. To publish a build, zip `Fox.exe` and `_internal` together and attach the zip to a [GitHub release](https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository). Build from a clean checkout, so no local `.env` or `data` exists to be bundled (the build refuses anyway).

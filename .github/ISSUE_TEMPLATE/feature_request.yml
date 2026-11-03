@@ -1,0 +1,40 @@
+name: Feature request
+description: Suggest a new ability or an improvement.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+      description: Describe what you're trying to do and what gets in the way.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would you like to happen?
+    validations:
+      required: true
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What kind of change is it?
+      options:
+        - A new tool or plugin
+        - A new agent
+        - The desktop app
+        - Voice
+        - Models and providers
+        - Permissions and safety
+        - Something else
+  - type: textarea
+    id: safety
+    attributes:
+      label: Permissions and safety
+      description: If this acts on the computer, what risk level should it have, and what should the permission prompt show?
+  - type: checkboxes
+    id: plugin
+    attributes:
+      label: Could it be a plugin?
+      options:
+        - label: I've checked whether this could be built as a plugin (docs/plugins.md) instead of a core change.

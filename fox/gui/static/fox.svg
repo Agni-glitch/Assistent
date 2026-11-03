@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="Fox">
+  <rect width="100" height="100" rx="22" fill="#1f1b18"/>
+  <path fill="#f2711c" d="M14 14 36 34H64L86 14 84 54 50 88 16 54Z"/>
+  <path fill="#b84a0e" d="M20 23 33 35 22 42ZM80 23 67 35 78 42Z"/>
+  <path fill="#fff3e6" d="M16 54 38 52 50 88ZM84 54 62 52 50 88Z"/>
+  <path fill="#1f1b18" d="M44 77H56L50 88ZM28 42 41 49 30 50ZM72 42 59 49 70 50Z"/>
+</svg>

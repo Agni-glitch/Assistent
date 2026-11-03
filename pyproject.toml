@@ -1,0 +1,109 @@
+[project]
+name = "fox-assistant"
+version = "0.1.0"
+description = "Fox: a permission-first personal assistant for Windows 11"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.11,<3.14"
+keywords = ["assistant", "ai-agent", "llm", "langchain", "windows", "voice-assistant", "automation"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Win32 (MS Windows)",
+    "Intended Audience :: End Users/Desktop",
+    "Operating System :: Microsoft :: Windows :: Windows 11",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Desktop Environment",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    # Core / LLM
+    "langchain-core>=1.0",
+    "langchain-openai>=1.0",
+    "pydantic>=2.7",
+    "pydantic-settings>=2.3",
+    "pyyaml>=6.0",
+    # Interfaces
+    "typer>=0.12",
+    "rich>=13.7",
+    "prompt-toolkit>=3.0",
+    "fastapi>=0.115",
+    "uvicorn>=0.30",
+    "websockets>=12.0",
+    # Windows control
+    "psutil>=5.9",
+    "pyautogui>=0.9.54",
+    "pygetwindow>=0.0.9",
+    "pyperclip>=1.9",
+    "pycaw>=20240210",
+    "comtypes>=1.4",
+    "screen-brightness-control>=0.24",
+    "send2trash>=1.8",
+    "winotify>=1.1",
+    "pillow>=10.4",
+    # Web and documents
+    "httpx>=0.27",
+    "beautifulsoup4>=4.12",
+    "ddgs>=9.0",
+    "pypdf>=5.0",
+    "python-docx>=1.1",
+]
+
+[project.optional-dependencies]
+gemini = ["langchain-google-genai>=3.0"]
+groq = ["langchain-groq>=1.0"]
+anthropic = ["langchain-anthropic>=1.0"]
+ollama = ["langchain-ollama>=1.0"]
+voice = [
+    "numpy>=1.26",
+    "sounddevice>=0.5",
+    "miniaudio>=1.60",
+    "pyttsx3>=2.98",
+    "edge-tts>=7.0",
+    "faster-whisper>=1.1",
+]
+gui = ["pywebview>=5.4"]
+all = ["fox-assistant[gemini,groq,anthropic,ollama,voice,gui]"]
+
+[project.urls]
+Homepage = "https://github.com/YOUR_GITHUB_USERNAME/fox"
+Documentation = "https://github.com/YOUR_GITHUB_USERNAME/fox/tree/main/docs"
+Issues = "https://github.com/YOUR_GITHUB_USERNAME/fox/issues"
+Changelog = "https://github.com/YOUR_GITHUB_USERNAME/fox/blob/main/CHANGELOG.md"
+
+[project.scripts]
+fox = "fox.cli:app"
+
+[project.gui-scripts]
+fox-gui = "fox.gui.app:main"
+
+[dependency-groups]
+dev = ["pytest>=8.0", "pytest-asyncio>=0.24", "ruff>=0.8"]
+build = ["pyinstaller>=6.11"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["fox"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+extend-exclude = ["_internal", "build"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+ignore = ["E501"]  # long lines are left to judgement
+
+[tool.ruff.lint.isort]
+known-first-party = ["fox", "conftest"]
