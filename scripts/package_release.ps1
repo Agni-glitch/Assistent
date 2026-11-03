@@ -25,6 +25,10 @@ $private = Get-ChildItem $internal -Recurse -Force -Include ".env", "fox.db", "a
 if ($private) {
     throw "The build contains private files and must not be shared: $($private.FullName -join ', ')"
 }
+$ownPlugins = Get-ChildItem (Join-Path $internal "defaults\plugins") -File -ErrorAction SilentlyContinue | Where-Object { $_.Name -notlike "_example*" }
+if ($ownPlugins) {
+    throw "The build contains your own plugins and must not be shared: $($ownPlugins.Name -join ', '). Rebuild with build.bat."
+}
 
 $dist = Join-Path $root "dist"
 New-Item -ItemType Directory -Force $dist | Out-Null

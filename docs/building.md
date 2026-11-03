@@ -24,6 +24,7 @@ It installs dependencies, runs the tests, builds `Fox.exe` and its `_internal` f
 The build stops with an error if:
 
 - the bundle contains your `.env`, chats or permissions, so a shared build never leaks your keys or data;
+- the bundle contains a plugin of your own. Only `plugins/_example*.py` are bundled, as starters for a new install; your own plugins stay on your computer, the same way `.gitignore` keeps them out of git;
 - `Fox.exe` fails its self-check, which loads every bundled library and tests the offline voice.
 
 ## Files involved
