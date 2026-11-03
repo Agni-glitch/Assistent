@@ -15,7 +15,7 @@ This guide takes you from a fresh clone to your first conversation with Fox.
 ## 1. Get the code
 
 ```powershell
-git clone https://github.com/YOUR_GITHUB_USERNAME/fox.git
+git clone https://github.com/Agni-glitch/fox.git
 cd fox
 ```
 

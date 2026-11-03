@@ -22,5 +22,5 @@ First public release.
 - Untrusted-content marking to reduce prompt injection.
 - `build.bat` packaging with a bundle safety check and self-test.
 
-[Unreleased]: https://github.com/YOUR_GITHUB_USERNAME/fox/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/YOUR_GITHUB_USERNAME/fox/releases/tag/v0.1.0
+[Unreleased]: https://github.com/Agni-glitch/fox/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/Agni-glitch/fox/releases/tag/v0.1.0

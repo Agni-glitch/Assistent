@@ -34,7 +34,7 @@ This Code of Conduct applies within all community spaces, and also when an indiv
 
 ## Enforcement
 
-Instances of abusive, harassing or otherwise unacceptable behaviour may be reported to the maintainers at **YOUR_CONTACT_EMAIL**. All complaints will be reviewed and investigated promptly and fairly. Maintainers are obligated to respect the privacy and security of the reporter of any incident.
+Instances of abusive, harassing or otherwise unacceptable behaviour may be reported to the maintainers at **agniroybar@gmail.com**. All complaints will be reviewed and investigated promptly and fairly. Maintainers are obligated to respect the privacy and security of the reporter of any incident.
 
 ## Enforcement guidelines
 

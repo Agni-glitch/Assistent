@@ -29,6 +29,8 @@ Fox runs one copy at a time; opening it again brings the open window to the fron
 
 When Fox wants to do something that isn't harmless, it stops and asks. The taskbar button flashes if the window is behind others.
 
+<img src="images/permission-prompt.png" alt="A critical permission prompt for send_email showing the full message and a box to type yes" width="720">
+
 | Button | Effect |
 |---|---|
 | **Allow once** | Runs this one call. |
@@ -48,6 +50,8 @@ A "target" is what the action is about: an app name, a website host, a folder, a
 ## Control
 
 The **Control** page holds the switches you keep for yourself. The model and its tools can't reach any of them.
+
+<img src="images/control.png" alt="The Control page with the kill switch, loaded plugins and reset options" width="720">
 
 **Kill switch.** One toggle that stops Fox acting. While it's on, every tool is blocked, even safe ones and anything you've already allowed, and whatever was running is cancelled at once. Chat still answers; Fox just can't touch your computer. A red banner stays across the top until you turn it off. From a terminal: `fox kill on`, `fox kill off`, `fox kill status`. A running app picks up the change within moments.
 

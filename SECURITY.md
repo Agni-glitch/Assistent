@@ -10,7 +10,7 @@ Fox is pre-1.0. Only the latest release and the `main` branch receive security f
 
 **Please don't report security problems in public issues, discussions or pull requests.**
 
-Report privately through GitHub: open the repository's **Security** tab and choose **Report a vulnerability** ([direct link](https://github.com/YOUR_GITHUB_USERNAME/fox/security/advisories/new)).
+Report privately through GitHub: open the repository's **Security** tab and choose **Report a vulnerability** ([direct link](https://github.com/Agni-glitch/fox/security/advisories/new)).
 
 Please include:
 

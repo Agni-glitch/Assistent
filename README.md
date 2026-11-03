@@ -8,7 +8,7 @@
 
 Chat or talk to Fox, and it opens apps, manages files, reads and sends email, searches the web and sets reminders on your own computer. Every action goes through a permission gate you control, and a kill switch stops everything at once.
 
-[![CI](https://github.com/YOUR_GITHUB_USERNAME/fox/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR_GITHUB_USERNAME/fox/actions/workflows/ci.yml)
+[![CI](https://github.com/Agni-glitch/fox/actions/workflows/ci.yml/badge.svg)](https://github.com/Agni-glitch/fox/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 ![Python 3.11–3.13](https://img.shields.io/badge/python-3.11%E2%80%933.13-blue)
 ![Platform: Windows 11](https://img.shields.io/badge/platform-Windows%2011-0078D6)
@@ -20,6 +20,12 @@ Chat or talk to Fox, and it opens apps, manages files, reads and sends email, se
 [Security model](docs/security-model.md) ·
 [Limitations](docs/limitations.md) ·
 [Contributing](CONTRIBUTING.md)
+
+<br>
+
+<img src="docs/images/permission-prompt.png" alt="Fox asking for permission before sending an email: a critical prompt showing the full message, with Never allow, Deny and Allow once buttons and a box where you must type yes" width="860">
+
+<sub>A critical action: Fox shows exactly what it will send and waits for you to type <b>yes</b>.</sub>
 
 </div>
 
@@ -47,14 +53,53 @@ Most assistants that can act on your computer either do too little or ask too li
 | **Plugins** | Python files in `plugins/`, hot-reloaded, behind the same permission gate. |
 | **Local API** | Authenticated REST and WebSocket API on `127.0.0.1` for building your own front end. |
 | **Prompt-injection hardening** | Content from web pages, emails and files is marked as untrusted data. |
-| **Single-file build** | `build.bat` produces `Fox.exe` with a self-check. |
+| **One-command build** | `build.bat` produces `Fox.exe` and a shortcut, after running the tests and a self-check. |
+
+## Screenshots
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/images/chat.png" alt="Chat page: Fox checks the date with a tool, then the email request is declined at the permission prompt and Fox confirms it didn't send it"></td>
+    <td width="50%"><img src="docs/images/chat-dark.png" alt="Chat page in dark theme, showing the empty state with suggested requests"></td>
+  </tr>
+  <tr>
+    <td><b>Chat.</b> Every action is shown in order, including ones you declined.</td>
+    <td><b>Dark theme.</b> Follows Windows, or set it in Settings.</td>
+  </tr>
+  <tr>
+    <td><img src="docs/images/tools.png" alt="Permissions page, All tools tab: each tool with an on/off switch, its risk level (safe, normal, critical or varies) and description"></td>
+    <td><img src="docs/images/remembered.png" alt="Permissions page, Remembered tab: always-allow rules for open_app notepad and open_website github.com, and a never rule for power_action shutdown"></td>
+  </tr>
+  <tr>
+    <td><b>All tools.</b> The risk level of every tool, and a switch to turn any of them off.</td>
+    <td><b>Remembered answers.</b> Each rule covers one tool and one target, and can be removed.</td>
+  </tr>
+  <tr>
+    <td><img src="docs/images/control.png" alt="Control page: the kill switch, loaded plugins with edit and delete buttons, and reset options"></td>
+    <td><img src="docs/images/agents.png" alt="Agents page: email_assistant, file_organizer and researcher cards, each listing its tools"></td>
+  </tr>
+  <tr>
+    <td><b>Control.</b> Kill switch, plugins and data reset, out of the model's reach.</td>
+    <td><b>Agents.</b> Specialists with their own tools, created in the app or in YAML.</td>
+  </tr>
+  <tr>
+    <td><img src="docs/images/activity-log.png" alt="Activity log: a record that the send_email request was denied by the user"></td>
+    <td><img src="docs/images/memory.png" alt="Memory page: pending reminders and saved facts, each with a button to cancel or forget it"></td>
+  </tr>
+  <tr>
+    <td><b>Activity log.</b> Every permission decision, with who asked and what for.</td>
+    <td><b>Memory.</b> Reminders and saved facts, which you can cancel or forget.</td>
+  </tr>
+</table>
+
+<sub>Screenshots use a scripted demo model and sample data.</sub>
 
 ## Quick start
 
 Requirements: Windows 11, [uv](https://docs.astral.sh/uv/getting-started/installation/), and an API key for at least one model provider (or a local [Ollama](https://ollama.com) model).
 
 ```powershell
-git clone https://github.com/YOUR_GITHUB_USERNAME/fox.git
+git clone https://github.com/Agni-glitch/fox.git
 cd fox
 uv sync --all-extras
 copy .env.example .env      # then add at least one API key

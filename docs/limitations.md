@@ -54,4 +54,4 @@ Fox is alpha software. This page lists what it can't do, the trade-offs it makes
 | A plugin doesn't appear | Its file name must not start with `_`. Check **Control** or `data/fox.log` for the load error. |
 | Microphone not working | Check Windows privacy settings allow desktop apps to use the microphone, and that `voice` extras are installed. |
 | The app window is blank | Install or repair the WebView2 Runtime. |
-| Anything else | Open `data/fox.log` (**Settings → Open log**) and [open an issue](https://github.com/YOUR_GITHUB_USERNAME/fox/issues/new/choose) with the relevant lines. Remove keys and personal data first. |
+| Anything else | Open `data/fox.log` (**Settings → Open log**) and [open an issue](https://github.com/Agni-glitch/fox/issues/new/choose) with the relevant lines. Remove keys and personal data first. |
