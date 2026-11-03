@@ -12,11 +12,15 @@ This guide takes you from a fresh clone to your first conversation with Fox.
 | Microsoft Edge WebView2 Runtime | Only for the desktop app. It comes with Windows 11. |
 | A microphone and speakers | Only for voice. |
 
+## Just want the app?
+
+Download **Fox-vX.Y.Z-windows-x64.zip** from the [latest release](https://github.com/Agni-glitch/Assistent/releases/latest), unzip it anywhere, and run `Fox.exe`. Its settings and data live in `%LOCALAPPDATA%\Fox`. Open **Models**, add a key, and you're ready; the rest of this page is for running from source.
+
 ## 1. Get the code
 
 ```powershell
-git clone https://github.com/Agni-glitch/fox.git
-cd fox
+git clone https://github.com/Agni-glitch/Assistent.git
+cd Assistent
 ```
 
 ## 2. Install

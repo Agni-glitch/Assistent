@@ -1,6 +1,6 @@
 [project]
 name = "fox-assistant"
-version = "0.1.0"
+version = "0.2.0"
 description = "Fox: a permission-first personal assistant for Windows 11"
 readme = "README.md"
 license = "MIT"
@@ -70,10 +70,10 @@ gui = ["pywebview>=5.4"]
 all = ["fox-assistant[gemini,groq,anthropic,ollama,voice,gui]"]
 
 [project.urls]
-Homepage = "https://github.com/Agni-glitch/fox"
-Documentation = "https://github.com/Agni-glitch/fox/tree/main/docs"
-Issues = "https://github.com/Agni-glitch/fox/issues"
-Changelog = "https://github.com/Agni-glitch/fox/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/Agni-glitch/Assistent"
+Documentation = "https://github.com/Agni-glitch/Assistent/tree/main/docs"
+Issues = "https://github.com/Agni-glitch/Assistent/issues"
+Changelog = "https://github.com/Agni-glitch/Assistent/blob/main/CHANGELOG.md"
 
 [project.scripts]
 fox = "fox.cli:app"

@@ -53,4 +53,17 @@ The build stops with an error if:
 
 ## Releasing on GitHub
 
-`Fox.exe`, `_internal` and `Fox.lnk` are in `.gitignore`; don't commit them. To publish a build, zip `Fox.exe` and `_internal` together and attach the zip to a [GitHub release](https://docs.github.com/en/repositories/releasing-projects-on-github/managing-releases-in-a-repository). Build from a clean checkout, so no local `.env` or `data` exists to be bundled (the build refuses anyway).
+`Fox.exe`, `_internal` and `Fox.lnk` are in `.gitignore`; don't commit them. Releases carry the app as a zip instead.
+
+1. Set the version in `pyproject.toml` and `fox/__init__.py`, move the changelog's *Unreleased* entries under the new version, and merge to `main`.
+2. Run `.\build.bat` so `Fox.exe` reports the new version.
+3. Run `.\scripts\package_release.ps1`. It zips `Fox.exe` and `_internal` into `dist\Fox-v<version>-windows-x64.zip`, refuses if any private file (`.env`, `fox.db`, `api_token.txt`, `permissions.json`, `models.json`) is inside, and prints the SHA-256.
+4. Tag and publish, with the changelog section as the notes:
+
+```powershell
+git tag v0.2.0
+git push origin v0.2.0
+gh release create v0.2.0 dist\Fox-v0.2.0-windows-x64.zip --title "Fox 0.2.0" --notes-file notes.md
+```
+
+The zip holds no settings or data. A downloaded `Fox.exe` keeps its data in `%LOCALAPPDATA%\Fox`, starting from the bundled `.env.example`, starter agents and example plugins.
